@@ -8,6 +8,7 @@ import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
 import { BatchLogRecordProcessor } from '@opentelemetry/sdk-logs';
 
+
 export const sdk = new NodeSDK({
     serviceName: 'syncfit-backend',
     traceExporter: new OTLPTraceExporter({
@@ -30,10 +31,17 @@ export const sdk = new NodeSDK({
 
 sdk.start();
 
-process.on('SIGTERM', () => {
-    sdk.shutdown()
-        .then(() => console.log('OpenTelemetry SDK terminated'))
-        .catch((error) => console.log('Error terminating OpenTelemetry SDK', error))
-        .finally(() => process.exit(0));
+
+
+process.on('SIGTERM', async () => {
+    try {
+        await sdk.shutdown()
+        console.log('OpenTelemetry SDK terminated')
+    } catch (error) {
+        console.error('Error terminating OpenTelemetry SDK', error)
+    } finally {
+        process.exit(0)
+    }
+
 });
 
