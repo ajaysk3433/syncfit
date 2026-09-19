@@ -1,0 +1,29 @@
+{
+  "name": "syncfit",
+  "version": "1.0.0",
+  "description": "gym management system",
+  "main": "index.js",
+  "scripts": {
+    "dev": "npx tsx --import ./src/instrumentation.ts ./src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/auto-instrumentations-node": "^0.80.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.222.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.222.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.222.0",
+    "@opentelemetry/instrumentation-winston": "^0.66.0",
+    "@opentelemetry/sdk-metrics": "^2.11.0",
+    "@opentelemetry/sdk-node": "^0.222.0",
+    "@opentelemetry/sdk-trace-node": "^2.11.0",
+    "@opentelemetry/winston-transport": "^0.32.0",
+    "@types/express": "^5.0.6",
+    "dotenv": "^18.0.0",
+    "express": "^5.2.1",
+    "winston": "^3.19.0"
+  }
+}

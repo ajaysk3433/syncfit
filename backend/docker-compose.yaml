@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: postgres
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+#    networks:
+#      - app
+
+  grafana-lgtm:
+    image: grafana/otel-lgtm:latest
+    container_name: grafana-lgtm
+    ports:
+      - "3000:3000"   # Grafana
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    volumes:
+      - grafana_data:/data
+#    networks:
+#      - app
+
+volumes:
+  postgres_data:
+  grafana_data:
+
+#networks:
+#  app:
