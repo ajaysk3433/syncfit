@@ -1,11 +1,13 @@
 /*app.ts*/
 import 'dotenv/config';
 import express, { type Express } from 'express';
+import swaggerUi from 'swagger-ui-express';
 import { logger } from './core/logs/logs.js';
 import AuthRouter from "./auth/auth.routs.js";
 import MembersRouter from "./members/members.routes.js";
 import PlansRouter from "./membership-plans/plans.routes.js";
 import AttendanceRouter from "./attendance/attendance.routes.js";
+import { swaggerDocument } from "./core/docs/swagger.js";
 import "./core/configs/firebase.js";
 import { errorHandler } from './core/error/error-handler.js';
 import { prisma } from './core/configs/prisma.js';
@@ -14,6 +16,13 @@ const PORT: number = parseInt(process.env.PORT || '8080');
 export const app: Express = express();
 
 app.use(express.json());
+
+// API Documentation (Swagger UI)
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.get("/api-docs.json", (_req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    res.send(swaggerDocument);
+});
 
 // API Routes
 app.use("/v1/auth", AuthRouter);
@@ -31,6 +40,7 @@ app.use(errorHandler);
 
 const server = app.listen(PORT, () => {
     logger.info(`Listening for requests on http://localhost:${PORT}`);
+    logger.info(`Swagger UI documentation available at http://localhost:${PORT}/docs`);
 });
 
 const gracefulShutdown = async (signal: string) => {
