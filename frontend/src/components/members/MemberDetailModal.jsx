@@ -48,9 +48,10 @@ export const MemberDetailModal = ({
     if (!memberId) return;
     setLoading(true);
     try {
-      const data = await membersApi.getMemberById(memberId);
-      setMember(data);
-      setNewStatus(data.status);
+      const res = await membersApi.getMemberById(memberId);
+      const memberObj = res?.data || res;
+      setMember(memberObj);
+      setNewStatus(memberObj?.status || "");
 
       // Load subscriptions & QR pass concurrently
       const [subsRes, qrRes, attRes] = await Promise.allSettled([
@@ -60,13 +61,15 @@ export const MemberDetailModal = ({
       ]);
 
       if (subsRes.status === "fulfilled") {
-        setSubscriptions(subsRes.value?.memberships || subsRes.value || []);
+        const subs = subsRes.value?.data || subsRes.value?.memberships || subsRes.value || [];
+        setSubscriptions(Array.isArray(subs) ? subs : []);
       }
       if (qrRes.status === "fulfilled") {
-        setQrData(qrRes.value);
+        setQrData(qrRes.value?.data || qrRes.value);
       }
       if (attRes.status === "fulfilled") {
-        setAttendances(attRes.value?.attendances || attRes.value?.history || []);
+        const atts = attRes.value?.data || attRes.value?.attendances || attRes.value?.history || [];
+        setAttendances(Array.isArray(atts) ? atts : []);
       }
     } catch (err) {
       toast.error(err.message || "Failed to load member profile");

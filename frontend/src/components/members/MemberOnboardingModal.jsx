@@ -39,7 +39,8 @@ export const MemberOnboardingModal = ({ isOpen, onClose, onCreated }) => {
     const fetchPlans = async () => {
       try {
         const res = await plansApi.listPlans({ isActive: "true" });
-        setPlans(res?.plans || []);
+        const planList = Array.isArray(res?.data) ? res.data : Array.isArray(res?.plans) ? res.plans : Array.isArray(res) ? res : [];
+        setPlans(planList);
       } catch (err) {
         console.error("Failed to load plans:", err);
       }

@@ -1,26 +1,25 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth, PRESET_DEV_ROLES } from "../context/AuthContext";
+import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import {
   Dumbbell,
   Lock,
   Mail,
   User,
-  Shield,
   ArrowRight,
-  Zap,
+  KeyRound,
 } from "lucide-react";
 
 export const LoginPage = () => {
-  const { signIn, signUp, switchDevRole } = useAuth();
+  const { signIn, signUp } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("admin@syncfit.com");
   const [password, setPassword] = useState("AdminPassword123!");
-  const [name, setName] = useState("Admin User");
+  const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -35,10 +34,10 @@ export const LoginPage = () => {
           name: name.trim(),
           role: "MEMBER",
         });
-        toast.success("Account created and signed in!");
+        toast.success("Account registered and authenticated via Firebase!");
       } else {
         await signIn(email.trim(), password);
-        toast.success("Signed in successfully!");
+        toast.success("Welcome back! Signed in with Firebase Auth.");
       }
       navigate("/");
     } catch (err) {
@@ -48,10 +47,11 @@ export const LoginPage = () => {
     }
   };
 
-  const handleDevBypass = (preset) => {
-    switchDevRole(preset);
-    toast.success(`Entered Dev Mode as ${preset.label}`);
-    navigate("/");
+  const handleAutofillAdmin = () => {
+    setEmail("admin@syncfit.com");
+    setPassword("AdminPassword123!");
+    setIsSignUp(false);
+    toast.info("Admin credentials populated");
   };
 
   return (
@@ -68,7 +68,7 @@ export const LoginPage = () => {
         className="glass-card animate-slide-bottom"
         style={{
           width: "100%",
-          maxWidth: "460px",
+          maxWidth: "440px",
           padding: "36px",
           position: "relative",
           zIndex: 1,
@@ -96,7 +96,7 @@ export const LoginPage = () => {
             Sync<span style={{ color: "var(--accent-cyan)" }}>Fit</span> Pro
           </h2>
           <p style={{ color: "var(--text-secondary)", fontSize: "14px", marginTop: "4px" }}>
-            {isSignUp ? "Create staff or member account" : "Gym Management & Operations Portal"}
+            {isSignUp ? "Register new account" : "Firebase Authentication Portal"}
           </p>
         </div>
 
@@ -111,7 +111,7 @@ export const LoginPage = () => {
                   type="text"
                   required
                   className="input search-bar-input"
-                  placeholder="Alex Trainer"
+                  placeholder="e.g. Alex Henderson"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
@@ -127,7 +127,7 @@ export const LoginPage = () => {
                 type="email"
                 required
                 className="input search-bar-input"
-                placeholder="admin@syncfit.com"
+                placeholder="user@syncfit.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -156,48 +156,31 @@ export const LoginPage = () => {
             style={{ marginTop: "8px", width: "100%" }}
             disabled={submitting}
           >
-            <span>{submitting ? "Authenticating..." : isSignUp ? "Create Account" : "Sign In"}</span>
+            <span>{submitting ? "Signing In..." : isSignUp ? "Create Account" : "Sign In with Firebase"}</span>
             <ArrowRight size={16} />
           </button>
         </form>
 
-        <div style={{ textAlign: "center", marginTop: "16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px" }}>
           <button
             type="button"
             className="btn btn-ghost btn-sm"
             onClick={() => setIsSignUp(!isSignUp)}
           >
-            {isSignUp ? "Already have an account? Sign In" : "Need an account? Register"}
+            {isSignUp ? "Already registered? Sign In" : "New member? Sign Up"}
           </button>
-        </div>
 
-        {/* Quick Dev Role Bypass Box */}
-        <div
-          style={{
-            marginTop: "24px",
-            paddingTop: "20px",
-            borderTop: "1px solid var(--border-subtle)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--accent-gold)", fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>
-            <Zap size={14} />
-            <span>Instant Role Explorer (Dev Bypass)</span>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-            {PRESET_DEV_ROLES.slice(0, 4).map((preset) => (
-              <button
-                key={preset.userId}
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => handleDevBypass(preset)}
-                style={{ fontSize: "11px", justifyContent: "flex-start" }}
-              >
-                <Shield size={12} style={{ color: "var(--accent-cyan)" }} />
-                <span>{preset.role}</span>
-              </button>
-            ))}
-          </div>
+          {!isSignUp && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={handleAutofillAdmin}
+              style={{ color: "var(--accent-cyan)", fontSize: "12px" }}
+            >
+              <KeyRound size={13} />
+              <span>Autofill Admin</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -51,7 +51,8 @@ export const MembersPage = () => {
         hasActiveMembership: hasActiveMembership || undefined,
       });
 
-      setMembers(res?.members || []);
+      const memberList = Array.isArray(res?.data) ? res.data : Array.isArray(res?.members) ? res.members : [];
+      setMembers(memberList);
       if (res?.pagination) {
         setPagination(res.pagination);
       }

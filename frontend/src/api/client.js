@@ -14,21 +14,8 @@ export const setApiBaseUrl = (url) => {
   }
 };
 
-// Dev Bypass Header Configuration
-export const getDevUserId = () => {
-  return localStorage.getItem("syncfit_dev_user_id") || "";
-};
-
-export const setDevUserId = (userId) => {
-  if (!userId) {
-    localStorage.removeItem("syncfit_dev_user_id");
-  } else {
-    localStorage.setItem("syncfit_dev_user_id", userId);
-  }
-};
-
 /**
- * Universal Fetch Request Helper
+ * Universal Fetch Request Helper with Strict Firebase ID Token Authentication
  */
 export async function apiRequest(endpoint, options = {}) {
   const baseUrl = getApiBaseUrl();
@@ -39,7 +26,7 @@ export async function apiRequest(endpoint, options = {}) {
     ...options.headers,
   };
 
-  // Attach Firebase ID Token if logged in
+  // Strictly attach Firebase ID Token if user is logged in
   const currentUser = auth.currentUser;
   if (currentUser) {
     try {
@@ -48,14 +35,8 @@ export async function apiRequest(endpoint, options = {}) {
         headers["Authorization"] = `Bearer ${token}`;
       }
     } catch (e) {
-      console.warn("Could not get Firebase token:", e);
+      console.warn("Could not retrieve Firebase token:", e);
     }
-  }
-
-  // Attach Dev User Bypass Header if set
-  const devUserId = getDevUserId();
-  if (devUserId && !headers["Authorization"]) {
-    headers["x-user-id"] = devUserId;
   }
 
   const config = {
@@ -95,7 +76,7 @@ export async function apiRequest(endpoint, options = {}) {
   } catch (error) {
     if (error.name === "TypeError" && error.message.includes("fetch")) {
       const networkError = new Error(
-        `Unable to reach backend server at ${baseUrl}. Ensure backend is running on http://localhost:8080.`
+        `Unable to reach backend server at ${baseUrl}. Ensure the backend is running on http://localhost:8080.`
       );
       networkError.status = 0;
       throw networkError;

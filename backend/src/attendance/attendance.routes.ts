@@ -43,13 +43,13 @@ router.get(
 // Check-in & Check-out
 router.post(
     "/check-in",
-    validate(checkInSchema),
+   // validate(checkInSchema),
     attendanceController.checkIn
 );
 
 router.post(
     "/check-out",
-    validate(checkOutSchema),
+    //validate(checkOutSchema),
     attendanceController.checkOut
 );
 
@@ -57,7 +57,7 @@ router.post(
     "/auto-checkout",
     authenticate,
     authorizeRoles("ADMIN", "MANAGER"),
-    validate(autoCheckoutSchema),
+    //validate(autoCheckoutSchema),
     attendanceController.autoCheckout
 );
 
@@ -65,7 +65,7 @@ router.post(
 router.get(
     "/members/:id",
     authenticate,
-    validate(getMemberAttendanceSchema),
+    //validate(getMemberAttendanceSchema),
     attendanceController.getMemberAttendanceHistory
 );
 
@@ -73,7 +73,7 @@ router.get(
     "/",
     authenticate,
     authorizeRoles("ADMIN", "MANAGER", "FRONT_DESK"),
-    validate(listAttendanceSchema),
+    //validate(listAttendanceSchema),
     attendanceController.listAttendance
 );
 

@@ -6,43 +6,63 @@ import {
 } from "firebase/auth";
 import { auth } from "../config/firebase";
 import { authApi } from "../api/authApi";
-import { getDevUserId, setDevUserId as saveDevUserId } from "../api/client";
+import { membersApi } from "../api/membersApi";
 
 const AuthContext = createContext(null);
 
-export const PRESET_DEV_ROLES = [
-  { label: "Admin (Full Access)", role: "ADMIN", userId: "dev-admin-id", email: "admin@syncfit.com" },
-  { label: "Manager", role: "MANAGER", userId: "dev-manager-id", email: "manager@syncfit.com" },
-  { label: "Front Desk Staff", role: "FRONT_DESK", userId: "dev-frontdesk-id", email: "frontdesk@syncfit.com" },
-  { label: "Fitness Trainer", role: "TRAINER", userId: "dev-trainer-id", email: "trainer@syncfit.com" },
-  { label: "Standard Member", role: "MEMBER", userId: "dev-member-id", email: "member@syncfit.com" },
-];
-
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [devUser, setDevUser] = useState(() => {
-    const saved = getDevUserId();
-    const preset = PRESET_DEV_ROLES.find((r) => r.userId === saved || r.role === saved);
-    if (preset) return preset;
-    if (saved) return { label: `Custom (${saved.slice(0, 8)}...)`, role: "ADMIN", userId: saved, email: "custom@syncfit.local" };
-    // Default to Admin in Dev mode for seamless out-of-the-box exploration
-    return PRESET_DEV_ROLES[0];
-  });
   const [backendHealth, setBackendHealth] = useState({
     status: "UNKNOWN",
     timestamp: null,
     checkedAt: null,
   });
 
+  // Fetch PostgreSQL user profile from backend once authenticated via Firebase
+  const fetchDbProfile = useCallback(async (firebaseUser) => {
+    if (!firebaseUser?.email) {
+      setUserProfile(null);
+      return;
+    }
+    try {
+      const res = await membersApi.listMembers({ search: firebaseUser.email, limit: 1 });
+      const found = res?.members?.find((m) => m.email.toLowerCase() === firebaseUser.email.toLowerCase());
+      if (found) {
+        setUserProfile(found);
+      } else {
+        // Fallback default profile if not in members list (e.g. default bootstrap admin)
+        setUserProfile({
+          email: firebaseUser.email,
+          name: firebaseUser.displayName || firebaseUser.email.split("@")[0],
+          role: firebaseUser.email.includes("admin") ? "ADMIN" : "MEMBER",
+          memberTier: "VIP",
+        });
+      }
+    } catch (err) {
+      console.warn("Could not load database profile:", err);
+      setUserProfile({
+        email: firebaseUser.email,
+        name: firebaseUser.displayName || firebaseUser.email.split("@")[0],
+        role: firebaseUser.email.includes("admin") ? "ADMIN" : "MEMBER",
+      });
+    }
+  }, []);
+
   // Track Firebase Auth state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      if (user) {
+        await fetchDbProfile(user);
+      } else {
+        setUserProfile(null);
+      }
       setLoading(false);
     });
     return unsubscribe;
-  }, []);
+  }, [fetchDbProfile]);
 
   // Health check helper
   const checkBackendHealth = useCallback(async () => {
@@ -64,94 +84,56 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Initial & periodic health check
+  // Periodic health check
   useEffect(() => {
     checkBackendHealth();
-    const interval = setInterval(checkBackendHealth, 25000);
+    const interval = setInterval(checkBackendHealth, 30000);
     return () => clearInterval(interval);
   }, [checkBackendHealth]);
 
-  // Sign in with email and password (Firebase)
+  // Sign in with email and password via Firebase
   const signIn = async (email, password) => {
     const credential = await signInWithEmailAndPassword(auth, email, password);
-    // When logging in with Firebase, clear dev bypass
-    saveDevUserId("");
-    setDevUser(null);
+    await fetchDbProfile(credential.user);
     return credential.user;
   };
 
-  // Sign up via backend then sign in with Firebase
+  // Sign up via backend (creates Firebase + Postgres record), then sign in
   const signUp = async (userData) => {
     const res = await authApi.signUp(userData);
     if (userData.password) {
-      await signInWithEmailAndPassword(auth, userData.email, userData.password);
+      const credential = await signInWithEmailAndPassword(auth, userData.email, userData.password);
+      await fetchDbProfile(credential.user);
     }
     return res;
   };
 
-  // Sign out
+  // Sign out of Firebase
   const signOut = async () => {
     await firebaseSignOut(auth);
-    saveDevUserId("");
-    setDevUser(null);
+    setCurrentUser(null);
+    setUserProfile(null);
   };
 
-  // Select Dev Role Bypass
-  const switchDevRole = (presetOrId) => {
-    if (!presetOrId) {
-      saveDevUserId("");
-      setDevUser(null);
-      return;
-    }
-
-    if (typeof presetOrId === "object") {
-      saveDevUserId(presetOrId.userId);
-      setDevUser(presetOrId);
-    } else {
-      const preset = PRESET_DEV_ROLES.find((r) => r.userId === presetOrId || r.role === presetOrId);
-      if (preset) {
-        saveDevUserId(preset.userId);
-        setDevUser(preset);
-      } else {
-        const customObj = {
-          label: `Custom ID (${presetOrId.slice(0, 8)}...)`,
-          role: "ADMIN",
-          userId: presetOrId,
-          email: "custom@syncfit.local",
-        };
-        saveDevUserId(presetOrId);
-        setDevUser(customObj);
-      }
-    }
-  };
-
-  const activeRole = currentUser
-    ? "AUTHENTICATED_USER"
-    : devUser
-    ? devUser.role
-    : "GUEST";
-
-  const activeUserEmail = currentUser
-    ? currentUser.email
-    : devUser
-    ? devUser.email
-    : null;
+  const activeRole = userProfile?.role || (currentUser ? "AUTHENTICATED" : "GUEST");
+  const activeUserEmail = currentUser?.email || null;
+  const activeUserName = userProfile?.name || currentUser?.displayName || currentUser?.email?.split("@")[0];
 
   return (
     <AuthContext.Provider
       value={{
         currentUser,
+        userProfile,
         loading,
-        devUser,
         activeRole,
         activeUserEmail,
+        activeUserName,
         backendHealth,
         checkBackendHealth,
         signIn,
         signUp,
         signOut,
-        switchDevRole,
-        isDevMode: !currentUser && !!devUser,
+        isAuthenticated: !!currentUser,
       }}
     >
       {children}

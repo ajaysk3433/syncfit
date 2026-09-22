@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth, PRESET_DEV_ROLES } from "../../context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { getApiBaseUrl, setApiBaseUrl } from "../../api/client";
 import {
@@ -8,28 +8,26 @@ import {
   LogOut,
   Settings,
   QrCode,
-  Shield,
   RefreshCw,
+  User,
 } from "lucide-react";
 import { Modal } from "./Modal";
+import { RoleBadge } from "./Badge";
 
 export const Navbar = ({ onOpenCheckIn }) => {
   const {
-    currentUser,
-    devUser,
     activeRole,
     activeUserEmail,
+    activeUserName,
     backendHealth,
     checkBackendHealth,
     signOut,
-    switchDevRole,
   } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
 
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [apiUrlInput, setApiUrlInput] = useState(getApiBaseUrl());
-  const [customUserId, setCustomUserId] = useState("");
   const [testingHealth, setTestingHealth] = useState(false);
 
   const handleSaveConfig = () => {
@@ -53,7 +51,7 @@ export const Navbar = ({ onOpenCheckIn }) => {
   const handleLogout = async () => {
     try {
       await signOut();
-      toast.info("Signed out");
+      toast.info("Signed out of Firebase");
       navigate("/login");
     } catch (err) {
       toast.error(err.message);
@@ -68,7 +66,7 @@ export const Navbar = ({ onOpenCheckIn }) => {
           <button
             className={`health-pill ${backendHealth.status === "HEALTHY" ? "healthy" : "offline"}`}
             onClick={() => setIsConfigOpen(true)}
-            title="Click to configure Backend URL or test connection"
+            title="Click to view Backend API status"
             style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,0.06)" }}
           >
             <span
@@ -97,43 +95,6 @@ export const Navbar = ({ onOpenCheckIn }) => {
             <span>Fast Check-In</span>
           </button>
 
-          {/* Dev Role Quick Switcher */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: "12px", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "4px" }}>
-              <Shield size={13} />
-              Role:
-            </span>
-            <select
-              className="select"
-              value={devUser?.userId || (currentUser ? "FIREBASE" : "")}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (val === "FIREBASE") return;
-                switchDevRole(val);
-                toast.info(`Switched active context to ${val}`);
-              }}
-              style={{
-                fontSize: "12px",
-                padding: "6px 10px",
-                width: "auto",
-                height: "32px",
-                background: "rgba(15, 23, 42, 0.9)",
-                borderColor: "rgba(255, 255, 255, 0.15)",
-              }}
-            >
-              {currentUser && (
-                <option value="FIREBASE">
-                  Firebase: {currentUser.email?.split("@")[0]}
-                </option>
-              )}
-              {PRESET_DEV_ROLES.map((role) => (
-                <option key={role.userId} value={role.userId}>
-                  {role.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Settings / API Config Modal Toggle */}
           <button
             className="btn-icon"
@@ -143,40 +104,55 @@ export const Navbar = ({ onOpenCheckIn }) => {
             <Settings size={17} />
           </button>
 
-          {/* User Profile / Logout */}
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", paddingLeft: "8px", borderLeft: "1px solid var(--border-subtle)" }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-              <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>
-                {activeUserEmail || "Staff User"}
+          {/* User Profile & Role Info */}
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", paddingLeft: "12px", borderLeft: "1px solid var(--border-subtle)" }}>
+            <div
+              style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "50%",
+                background: "linear-gradient(135deg, rgba(6, 182, 212, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%)",
+                border: "1px solid rgba(6, 182, 212, 0.35)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--accent-cyan)",
+                fontWeight: 700,
+                fontSize: "14px",
+              }}
+            >
+              {activeUserName ? activeUserName.charAt(0).toUpperCase() : <User size={16} />}
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+              <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.2 }}>
+                {activeUserName || "Staff User"}
               </span>
-              <span style={{ fontSize: "11px", color: "var(--accent-cyan)", textTransform: "uppercase", fontWeight: 700 }}>
-                {activeRole}
+              <span style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>
+                {activeUserEmail}
               </span>
             </div>
 
-            {currentUser ? (
-              <button
-                className="btn-icon"
-                onClick={handleLogout}
-                title="Sign Out"
-                style={{ color: "#f87171" }}
-              >
-                <LogOut size={16} />
-              </button>
-            ) : (
-              <Link to="/login" className="btn btn-ghost btn-sm">
-                Login
-              </Link>
-            )}
+            <RoleBadge role={activeRole} />
+
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={handleLogout}
+              title="Sign Out"
+              style={{ marginLeft: "4px" }}
+            >
+              <LogOut size={14} style={{ color: "#f87171" }} />
+              <span>Logout</span>
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Backend & Dev Mode Configuration Modal */}
+      {/* Backend Configuration Modal */}
       <Modal
         isOpen={isConfigOpen}
         onClose={() => setIsConfigOpen(false)}
-        title="Backend & Connection Settings"
+        title="Backend & Connection Status"
         icon={<Server size={20} />}
         footer={
           <>
@@ -184,7 +160,7 @@ export const Navbar = ({ onOpenCheckIn }) => {
               Cancel
             </button>
             <button className="btn btn-primary" onClick={handleSaveConfig}>
-              Save Settings
+              Save
             </button>
           </>
         }
@@ -211,7 +187,7 @@ export const Navbar = ({ onOpenCheckIn }) => {
               </button>
             </div>
             <span style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "6px", display: "block" }}>
-              Default: <code>http://localhost:8080</code>. Swagger UI is hosted at <code>/docs</code>.
+              Requests are securely signed with your Firebase ID token in the <code>Authorization: Bearer</code> header.
             </span>
           </div>
 
@@ -245,31 +221,6 @@ export const Navbar = ({ onOpenCheckIn }) => {
                 Error: {backendHealth.error}
               </p>
             )}
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Custom Dev User ID Bypass Header (x-user-id)</label>
-            <div style={{ display: "flex", gap: "10px" }}>
-              <input
-                type="text"
-                className="input"
-                value={customUserId}
-                onChange={(e) => setCustomUserId(e.target.value)}
-                placeholder="Enter User UUID from database..."
-              />
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => {
-                  if (customUserId) {
-                    switchDevRole(customUserId);
-                    toast.success("Custom Dev User ID activated");
-                  }
-                }}
-              >
-                Apply
-              </button>
-            </div>
           </div>
         </div>
       </Modal>

@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { ToastProvider } from "./context/ToastContext";
-import { AuthProvider } from "./context/AuthContext";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { ToastProvider, useToast } from "./context/ToastContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Navbar } from "./components/common/Navbar";
 import { Sidebar } from "./components/common/Sidebar";
 import { QuickCheckInModal } from "./components/attendance/QuickCheckInModal";
 import { attendanceApi } from "./api/attendanceApi";
-import { useToast } from "./context/ToastContext";
+import { LoadingSpinner } from "./components/common/LoadingSpinner";
 
 // Pages
 import { DashboardPage } from "./pages/DashboardPage";
@@ -20,6 +20,45 @@ import { LoginPage } from "./pages/LoginPage";
 import "./styles/index.css";
 import "./styles/components.css";
 import "./styles/animations.css";
+
+// Protected Route Guard - Strictly requires authenticated Firebase user
+function ProtectedRoute({ children }) {
+  const { currentUser, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <LoadingSpinner text="Verifying authentication credentials..." />
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return children;
+}
+
+// Public Route Guard - Redirects logged-in users away from /login
+function PublicRoute({ children }) {
+  const { currentUser, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <LoadingSpinner text="Loading..." />
+      </div>
+    );
+  }
+
+  if (currentUser) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+}
 
 function AppLayout() {
   const toast = useToast();
@@ -64,8 +103,25 @@ export default function App() {
       <ToastProvider>
         <AuthProvider>
           <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/*" element={<AppLayout />} />
+            {/* Login is public only */}
+            <Route
+              path="/login"
+              element={
+                <PublicRoute>
+                  <LoginPage />
+                </PublicRoute>
+              }
+            />
+
+            {/* All other routes strictly protected by Firebase Auth */}
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              }
+            />
           </Routes>
         </AuthProvider>
       </ToastProvider>

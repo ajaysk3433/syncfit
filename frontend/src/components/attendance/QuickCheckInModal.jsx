@@ -39,7 +39,8 @@ export const QuickCheckInModal = ({ isOpen, onClose, onCheckInSuccess }) => {
           search: memberSearch,
           limit: 10,
         });
-        setMembers(res?.members || []);
+        const memberList = Array.isArray(res?.data) ? res.data : Array.isArray(res?.members) ? res.members : [];
+        setMembers(memberList);
       } catch (err) {
         console.error("Failed to load members for check-in:", err);
       }

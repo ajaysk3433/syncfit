@@ -31,9 +31,9 @@ export const AnalyticsPage = () => {
         attendanceApi.getMemberFrequencyAnalytics(),
       ]);
 
-      if (ovRes.status === "fulfilled") setOverview(ovRes.value?.stats || ovRes.value);
-      if (peakRes.status === "fulfilled") setPeakHours(peakRes.value);
-      if (churnRes.status === "fulfilled") setChurnData(churnRes.value);
+      if (ovRes.status === "fulfilled") setOverview(ovRes.value?.data || ovRes.value?.stats || ovRes.value);
+      if (peakRes.status === "fulfilled") setPeakHours(peakRes.value?.data || peakRes.value);
+      if (churnRes.status === "fulfilled") setChurnData(churnRes.value?.data || churnRes.value);
     } catch (err) {
       toast.error(err.message || "Failed to load analytics");
     } finally {

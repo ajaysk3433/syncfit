@@ -30,10 +30,10 @@ export const DashboardPage = () => {
       ]);
 
       if (occRes.status === "fulfilled") {
-        setOccupancy(occRes.value);
+        setOccupancy(occRes.value?.data || occRes.value);
       }
       if (statsRes.status === "fulfilled") {
-        setOverviewStats(statsRes.value?.stats || statsRes.value);
+        setOverviewStats(statsRes.value?.data || statsRes.value?.stats || statsRes.value);
       }
     } catch (err) {
       console.error("Dashboard data error:", err);

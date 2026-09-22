@@ -42,7 +42,8 @@ export const AttendancePage = () => {
         endDate: endDate ? new Date(endDate).toISOString() : undefined,
       });
 
-      setLogs(res?.attendances || res?.data || []);
+      const logList = Array.isArray(res?.data) ? res.data : Array.isArray(res?.attendances) ? res.attendances : [];
+      setLogs(logList);
       if (res?.pagination) {
         setPagination(res.pagination);
       }

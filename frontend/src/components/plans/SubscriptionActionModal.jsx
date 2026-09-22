@@ -43,7 +43,7 @@ export const SubscriptionActionModal = ({
       const fetchPlans = async () => {
         try {
           const res = await plansApi.listPlans({ isActive: "true" });
-          const allPlans = res?.plans || [];
+          const allPlans = Array.isArray(res?.data) ? res.data : Array.isArray(res?.plans) ? res.plans : Array.isArray(res) ? res : [];
           setPlans(allPlans);
           if (allPlans.length > 0) {
             setSelectedPlanId(allPlans[0].id);

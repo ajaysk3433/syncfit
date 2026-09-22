@@ -34,7 +34,8 @@ export const PlansPage = () => {
         isActive: isActiveFilter || undefined,
         search: search.trim() || undefined,
       });
-      setPlans(res?.plans || []);
+      const planList = Array.isArray(res?.data) ? res.data : Array.isArray(res?.plans) ? res.plans : Array.isArray(res) ? res : [];
+      setPlans(planList);
     } catch (err) {
       toast.error(err.message || "Failed to load membership plans");
     } finally {

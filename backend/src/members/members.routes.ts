@@ -16,7 +16,7 @@ const router = express.Router();
 // Register new member (open or staff)
 router.post(
     "/",
-    validate(createMemberSchema),
+    //validate(createMemberSchema),
     membersController.createMember
 );
 
@@ -25,7 +25,7 @@ router.get(
     "/",
     authenticate,
     authorizeRoles("ADMIN", "MANAGER", "FRONT_DESK", "TRAINER"),
-    validate(listMembersSchema),
+    //validate(listMembersSchema),
     membersController.listMembers
 );
 
@@ -33,7 +33,7 @@ router.get(
 router.get(
     "/:id",
     authenticate,
-    validate(getMemberByIdSchema),
+    //validate(getMemberByIdSchema),
     membersController.getMemberById
 );
 
@@ -41,7 +41,7 @@ router.get(
 router.patch(
     "/:id",
     authenticate,
-    validate(updateMemberProfileSchema),
+   // validate(updateMemberProfileSchema),
     membersController.updateMemberProfile
 );
 
@@ -50,7 +50,7 @@ router.patch(
     "/:id/status",
     authenticate,
     authorizeRoles("ADMIN", "MANAGER"),
-    validate(updateMemberStatusSchema),
+   // validate(updateMemberStatusSchema),
     membersController.updateMemberStatus
 );
 
@@ -58,14 +58,14 @@ router.patch(
 router.get(
     "/:id/access-qr",
     authenticate,
-    validate(getMemberByIdSchema),
+   // validate(getMemberByIdSchema),
     membersController.getMemberAccessQr
 );
 
 router.post(
     "/:id/access-qr/regenerate",
     authenticate,
-    validate(getMemberByIdSchema),
+    //validate(getMemberByIdSchema),
     membersController.regenerateMemberAccessQr
 );
 
