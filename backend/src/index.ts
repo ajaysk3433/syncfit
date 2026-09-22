@@ -7,31 +7,32 @@ import "./core/configs/firebase.js"
 import { errorHandler } from './core/error/error-handler.js';
 
 
+import { prisma } from './core/configs/prisma.js';
+
 const PORT: number = parseInt(process.env.PORT || '8080');
 const app: Express = express();
-app.use(express.json())
+app.use(express.json());
 
-app.use("/v1/auth/",AuthRouter)
+app.use("/v1/auth/", AuthRouter);
 
 const server = app.listen(PORT, () => {
     logger.info(`Listening for requests on http://localhost:${PORT}`);
 });
 
+app.use(errorHandler);
 
-app.use(errorHandler)
-
-process.on('SIGTERM', () => {
-    logger.info('Process terminating');
+const gracefulShutdown = async (signal: string) => {
+    logger.info(`Received ${signal}. Process terminating`);
+    try {
+        await prisma.$disconnect();
+    } catch (err) {
+        logger.error('Error disconnecting Prisma client', { error: err });
+    }
     server.close(() => {
         logger.info('Process terminated');
         process.exit(0);
     });
-});
+};
 
-process.on('SIGINT', () => {
-    logger.info('Process terminating');
-    server.close(() => {
-        logger.info('Process terminated');
-        process.exit(0);
-    });
-});
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

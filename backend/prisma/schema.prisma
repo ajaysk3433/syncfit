@@ -1,0 +1,45 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  FRONT_DESK
+  TRAINER
+  MAINTENANCE
+  MEMBER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum MemberTier {
+  STANDARD
+  PREMIUM
+  VIP
+}
+
+model User {
+  id          String      @id @default(uuid())
+  firebaseUid String      @unique
+  email       String      @unique
+  name        String?
+  phone       String?
+  role        Role        @default(MEMBER)
+  status      UserStatus  @default(ACTIVE)
+  memberTier  MemberTier? @default(STANDARD)
+  avatarUrl   String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("users")
+}
