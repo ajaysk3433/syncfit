@@ -8,9 +8,6 @@ import {
     autoCheckoutSchema,
     listAttendanceSchema,
     getMemberAttendanceSchema,
-    createVisitorPassSchema,
-    listVisitorPassesSchema,
-    checkInVisitorPassSchema,
 } from "./attendance.schema.js";
 
 const router = express.Router();
@@ -62,29 +59,6 @@ router.post(
     authorizeRoles("ADMIN", "MANAGER"),
     validate(autoCheckoutSchema),
     attendanceController.autoCheckout
-);
-
-// Visitor Passes
-router.post(
-    "/visitor-passes",
-    authenticate,
-    authorizeRoles("ADMIN", "MANAGER", "FRONT_DESK"),
-    validate(createVisitorPassSchema),
-    attendanceController.createVisitorPass
-);
-
-router.get(
-    "/visitor-passes",
-    authenticate,
-    authorizeRoles("ADMIN", "MANAGER", "FRONT_DESK"),
-    validate(listVisitorPassesSchema),
-    attendanceController.listVisitorPasses
-);
-
-router.post(
-    "/visitor-passes/check-in",
-    validate(checkInVisitorPassSchema),
-    attendanceController.checkInVisitorPass
 );
 
 // Attendance History / Logs

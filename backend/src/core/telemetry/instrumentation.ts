@@ -45,3 +45,15 @@ process.on('SIGTERM', async () => {
 
 });
 
+process.on('SIGINT', async () => {
+    try {
+        await sdk.shutdown()
+        console.log('OpenTelemetry SDK terminated')
+    } catch (error) {
+        console.error('Error terminating OpenTelemetry SDK', error)
+    } finally {
+        process.exit(0)
+    }
+
+});
+

@@ -73,40 +73,13 @@ async function runVerification() {
         const upgraded = await plansService.upgradeMembership(memberId, vipPlan.id, "Upgraded to VIP package");
         console.log(`✅ Membership Upgraded to VIP: ${upgraded.id} (Status: ${upgraded.status})`);
 
-        // Step 4: Dependents & Documents
-        console.log("\n👨‍👩‍👦 4. Testing Family Dependents & Document Management...");
-        const dependent = await membersService.addDependent(memberId, {
-            name: "Jimmy Doe",
-            relationship: "Child",
-            dateOfBirth: "2010-08-20",
-            gender: "Male",
-        });
-        console.log(`✅ Added Dependent: ${dependent.id} (${dependent.name})`);
-
-        const dependentsList = await membersService.getDependents(memberId);
-        console.log(`✅ Retrieved ${dependentsList.length} dependents for member`);
-
-        const waiver = await membersService.addDocument(memberId, {
-            title: "Gym Safety & Liability Waiver",
-            documentType: "WAIVER",
-            fileUrl: "https://syncfit.example.com/docs/waiver-v1.pdf",
-            signed: false,
-        });
-        console.log(`✅ Added Document: ${waiver.id} (${waiver.title}, Status: ${waiver.status})`);
-
-        const signedWaiver = await membersService.signDocument(memberId, waiver.id, {
-            signatureData: "John Doe [E-Signed 2026-09-22]",
-            notes: "Signed on mobile app onboarding",
-        });
-        console.log(`✅ Signed Document: ${signedWaiver.id}, Status: ${signedWaiver.status}`);
-
-        // Step 5: QR Code Access
-        console.log("\n📱 5. Testing Member QR Access Token...");
+        // Step 4: QR Code Access
+        console.log("\n📱 4. Testing Member QR Access Token...");
         const qrInfo = await membersService.getMemberAccessQr(memberId);
         console.log(`✅ Member QR Code Key: ${qrInfo.qrCodeKey}`);
 
-        // Step 6: Attendance Check-in & Check-out Engine
-        console.log("\n🚪 6. Testing Attendance Check-in Engine...");
+        // Step 5: Attendance Check-in & Check-out Engine
+        console.log("\n🚪 5. Testing Attendance Check-in Engine...");
         const checkInResult = await attendanceService.checkIn({
             qrCodeKey: qrInfo.qrCodeKey,
             method: "QR_CODE",
@@ -125,21 +98,21 @@ async function runVerification() {
         console.log(`✅ Duplicate Check-in Handled: alreadyCheckedIn = ${dupCheckIn.alreadyCheckedIn}`);
 
         // Occupancy Check
-        console.log("\n🏢 7. Testing Real-time Occupancy Monitoring...");
+        console.log("\n🏢 6. Testing Real-time Occupancy Monitoring...");
         const occupancy = await attendanceService.getOccupancy(100);
         console.log(`✅ Live Occupancy: ${occupancy.currentCount} / ${occupancy.maxCapacity} (${occupancy.occupancyPercentage}%)`);
         console.log(`   Active Occupants in Facility: ${occupancy.activeOccupants.length}`);
 
         // Check-out
-        console.log("\n🚪 8. Testing Check-out Engine...");
+        console.log("\n🚪 7. Testing Check-out Engine...");
         const checkOutResult = await attendanceService.checkOut({
             attendanceId: checkInResult.attendanceId,
             notes: "Finished chest & triceps session",
         });
         console.log(`✅ Check-out Success: Duration = ${checkOutResult.durationMinutes} mins, Status = ${checkOutResult.status}`);
 
-        // Step 9: Check-in Denial Validations (Suspended Account & No Membership)
-        console.log("\n⛔ 9. Testing Access Restrictions & Denial Logs...");
+        // Step 8: Check-in Denial Validations (Suspended Account & No Membership)
+        console.log("\n⛔ 8. Testing Access Restrictions & Denial Logs...");
         const suspendedUserEmail = `suspended.${Date.now()}@example.com`;
         const suspendedMember = await membersService.createMember({
             email: suspendedUserEmail,
@@ -158,27 +131,8 @@ async function runVerification() {
             console.log(`✅ Check-in correctly denied for suspended member: "${deniedError.message}"`);
         }
 
-        // Step 10: Visitor Passes
-        console.log("\n🎟️ 10. Testing Visitor Pass Issuance & Check-in...");
-        const visitorPass = await attendanceService.createVisitorPass({
-            visitorName: "Guest Alice",
-            visitorEmail: "alice.guest@example.com",
-            hostMemberId: memberId,
-            passType: "GUEST_PASS",
-            validDays: 1,
-            notes: "Guest pass invited by John Doe",
-        });
-        console.log(`✅ Issued Visitor Pass: Code = ${visitorPass.passCode}, Visitor = ${visitorPass.visitorName}`);
-
-        const usedPass = await attendanceService.checkInVisitorPass({
-            passCode: visitorPass.passCode,
-            location: "Downtown SyncFit Gym",
-            notes: "First time visitor",
-        });
-        console.log(`✅ Visitor Check-in Success: Status = ${usedPass.visitorPass?.status}`);
-
-        // Step 11: Analytics & Reports
-        console.log("\n📊 11. Testing Attendance Analytics & Insights...");
+        // Step 9: Analytics & Reports
+        console.log("\n📊 9. Testing Attendance Analytics & Insights...");
         const overview = await attendanceService.getOverviewStats();
         console.log(`✅ Analytics Overview: Today = ${overview.visitsToday}, Week = ${overview.visitsThisWeek}, Month = ${overview.visitsThisMonth}`);
 

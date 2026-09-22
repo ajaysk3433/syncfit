@@ -4,7 +4,7 @@ export const swaggerDocument = {
     title: "SyncFit Gym Management System API",
     version: "1.0.0",
     description:
-      "Enterprise-grade backend API for SyncFit Gym Management System. Includes Authentication, Member Lifecycle Management, Membership Plans & Subscriptions, Access Control & Attendance tracking, Visitor Passes, and Real-Time Occupancy Analytics.",
+      "Enterprise-grade backend API for SyncFit Gym Management System. Includes Authentication, Member Lifecycle Management, Membership Plans & Subscriptions, Access Control & Attendance tracking, and Real-Time Occupancy Analytics.",
     contact: {
       name: "SyncFit Engineering Team",
       email: "support@syncfit.internal",
@@ -18,11 +18,10 @@ export const swaggerDocument = {
   ],
   tags: [
     { name: "Auth", description: "Authentication and Registration" },
-    { name: "Members", description: "Member profiles, onboarding, status, dependents, and documents" },
+    { name: "Members", description: "Member profiles, onboarding, status, and QR access tokens" },
     { name: "Membership Plans", description: "Membership pricing, duration, and feature packages" },
     { name: "Member Subscriptions", description: "Member subscription lifecycle (assign, pause, resume, cancel, renew, upgrade)" },
     { name: "Attendance & Access Control", description: "Check-in/out engine, restrictions validation, auto check-out, and live occupancy" },
-    { name: "Visitor Passes", description: "Guest pass and day pass issuance and check-in" },
     { name: "Analytics", description: "Attendance overview, peak gym traffic hours, and churn risk metrics" },
     { name: "System", description: "Health check and system diagnostics" },
   ],
@@ -133,22 +132,6 @@ export const swaggerDocument = {
           denialReason: { type: "string", nullable: true },
           location: { type: "string" },
           notes: { type: "string", nullable: true },
-        },
-      },
-      VisitorPass: {
-        type: "object",
-        properties: {
-          id: { type: "string", format: "uuid" },
-          passCode: { type: "string", example: "VP-A1B2C3" },
-          visitorName: { type: "string", example: "Jane Smith" },
-          visitorEmail: { type: "string", format: "email" },
-          visitorPhone: { type: "string" },
-          hostMemberId: { type: "string", format: "uuid", nullable: true },
-          passType: { type: "string", enum: ["DAY_PASS", "GUEST_PASS", "TRIAL_PASS", "EVENT_PASS"] },
-          validFrom: { type: "string", format: "date-time" },
-          validUntil: { type: "string", format: "date-time" },
-          status: { type: "string", enum: ["ACTIVE", "USED", "EXPIRED", "REVOKED"] },
-          usedAt: { type: "string", format: "date-time", nullable: true },
         },
       },
     },
@@ -276,7 +259,7 @@ export const swaggerDocument = {
       get: {
         tags: ["Members"],
         summary: "Get Member Details",
-        description: "Retrieves complete profile, active & historical memberships, documents, dependents, referrals, and visit stats.",
+        description: "Retrieves complete profile, active & historical memberships, and visit stats.",
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
         responses: {
           200: { description: "Member details retrieved" },
@@ -361,120 +344,6 @@ export const swaggerDocument = {
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
         responses: {
           200: { description: "New QR code key generated" },
-        },
-      },
-    },
-    "/v1/members/{id}/dependents": {
-      post: {
-        tags: ["Members"],
-        summary: "Add Family Dependent to Member",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["name"],
-                properties: {
-                  name: { type: "string", example: "Jimmy Doe" },
-                  email: { type: "string", format: "email" },
-                  phone: { type: "string" },
-                  relationship: { type: "string", default: "Family" },
-                  dateOfBirth: { type: "string", format: "date" },
-                  gender: { type: "string" },
-                  healthNotes: { type: "string" },
-                },
-              },
-            },
-          },
-        },
-        responses: {
-          201: { description: "Dependent added successfully" },
-        },
-      },
-      get: {
-        tags: ["Members"],
-        summary: "List Dependents for Member",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
-        responses: {
-          200: { description: "List of dependents" },
-        },
-      },
-    },
-    "/v1/members/{id}/referrals": {
-      get: {
-        tags: ["Members"],
-        summary: "List Members Referred by this Member",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
-        responses: {
-          200: { description: "List of referred members" },
-        },
-      },
-    },
-    "/v1/members/{id}/documents": {
-      post: {
-        tags: ["Members"],
-        summary: "Attach Document / Waiver to Member",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["title"],
-                properties: {
-                  title: { type: "string", example: "Liability Waiver 2026" },
-                  documentType: { type: "string", enum: ["WAIVER", "CONTRACT", "MEDICAL_CLEARANCE", "ID_PROOF", "OTHER"], default: "WAIVER" },
-                  fileUrl: { type: "string", format: "uri" },
-                  signed: { type: "boolean", default: false },
-                  signatureData: { type: "string" },
-                  expiresAt: { type: "string", format: "date-time" },
-                  notes: { type: "string" },
-                },
-              },
-            },
-          },
-        },
-        responses: {
-          201: { description: "Document attached successfully" },
-        },
-      },
-      get: {
-        tags: ["Members"],
-        summary: "List Documents for Member",
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
-        responses: {
-          200: { description: "List of documents" },
-        },
-      },
-    },
-    "/v1/members/{id}/documents/{docId}/sign": {
-      patch: {
-        tags: ["Members"],
-        summary: "Electronically Sign Document / Waiver",
-        parameters: [
-          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
-          { name: "docId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
-        ],
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["signatureData"],
-                properties: {
-                  signatureData: { type: "string", example: "John Doe [E-Signed]" },
-                  notes: { type: "string" },
-                },
-              },
-            },
-          },
-        },
-        responses: {
-          200: { description: "Document marked as signed" },
         },
       },
     },
@@ -820,74 +689,6 @@ export const swaggerDocument = {
         ],
         responses: {
           200: { description: "Member visit history and stats" },
-        },
-      },
-    },
-    "/v1/attendance/visitor-passes": {
-      post: {
-        tags: ["Visitor Passes"],
-        summary: "Issue Visitor / Guest Pass",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["visitorName"],
-                properties: {
-                  visitorName: { type: "string", example: "Guest Alice" },
-                  visitorEmail: { type: "string", format: "email", example: "alice@example.com" },
-                  visitorPhone: { type: "string", example: "+15554443333" },
-                  hostMemberId: { type: "string", format: "uuid", description: "Member who invited guest" },
-                  passType: { type: "string", enum: ["DAY_PASS", "GUEST_PASS", "TRIAL_PASS", "EVENT_PASS"], default: "DAY_PASS" },
-                  validDays: { type: "integer", default: 1 },
-                  notes: { type: "string" },
-                },
-              },
-            },
-          },
-        },
-        responses: {
-          201: { description: "Pass issued with unique code" },
-        },
-      },
-      get: {
-        tags: ["Visitor Passes"],
-        summary: "List Visitor Passes",
-        parameters: [
-          { name: "status", in: "query", schema: { type: "string", enum: ["ACTIVE", "USED", "EXPIRED", "REVOKED"] } },
-          { name: "passType", in: "query", schema: { type: "string", enum: ["DAY_PASS", "GUEST_PASS", "TRIAL_PASS", "EVENT_PASS"] } },
-          { name: "search", in: "query", schema: { type: "string" } },
-        ],
-        responses: {
-          200: { description: "List of visitor passes" },
-        },
-      },
-    },
-    "/v1/attendance/visitor-passes/check-in": {
-      post: {
-        tags: ["Visitor Passes"],
-        summary: "Check-In Using Visitor Pass Code",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["passCode"],
-                properties: {
-                  passCode: { type: "string", example: "VP-A1B2C3" },
-                  location: { type: "string", default: "Main Gym" },
-                  notes: { type: "string" },
-                },
-              },
-            },
-          },
-        },
-        responses: {
-          200: { description: "Visitor pass verified and checked in" },
-          403: { description: "Pass expired or already used" },
-          404: { description: "Pass not found" },
         },
       },
     },

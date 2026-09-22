@@ -9,9 +9,6 @@ import {
     updateMemberStatusSchema,
     getMemberByIdSchema,
     listMembersSchema,
-    addDependentSchema,
-    addDocumentSchema,
-    signDocumentSchema,
 } from "./members.schema.js";
 
 const router = express.Router();
@@ -70,51 +67,6 @@ router.post(
     authenticate,
     validate(getMemberByIdSchema),
     membersController.regenerateMemberAccessQr
-);
-
-// Dependents
-router.post(
-    "/:id/dependents",
-    authenticate,
-    validate(addDependentSchema),
-    membersController.addDependent
-);
-
-router.get(
-    "/:id/dependents",
-    authenticate,
-    validate(getMemberByIdSchema),
-    membersController.getDependents
-);
-
-// Referrals
-router.get(
-    "/:id/referrals",
-    authenticate,
-    validate(getMemberByIdSchema),
-    membersController.getReferrals
-);
-
-// Documents & Waivers
-router.post(
-    "/:id/documents",
-    authenticate,
-    validate(addDocumentSchema),
-    membersController.addDocument
-);
-
-router.get(
-    "/:id/documents",
-    authenticate,
-    validate(getMemberByIdSchema),
-    membersController.getDocuments
-);
-
-router.patch(
-    "/:id/documents/:docId/sign",
-    authenticate,
-    validate(signDocumentSchema),
-    membersController.signDocument
 );
 
 // Mount membership lifecycle routes under /v1/members/:id/memberships

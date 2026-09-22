@@ -58,47 +58,6 @@ export const updateMemberStatusSchema = z.object({
     }),
 });
 
-export const addDependentSchema = z.object({
-    params: z.object({
-        id: z.string().uuid("Invalid member ID format"),
-    }),
-    body: z.object({
-        name: z.string().trim().min(1, "Dependent name is required"),
-        email: z.string().trim().email().optional(),
-        phone: z.string().trim().optional(),
-        relationship: z.string().trim().default("Family"),
-        dateOfBirth: z.string().optional(),
-        gender: z.string().trim().optional(),
-        healthNotes: z.string().trim().optional(),
-    }),
-});
-
-export const addDocumentSchema = z.object({
-    params: z.object({
-        id: z.string().uuid("Invalid member ID format"),
-    }),
-    body: z.object({
-        title: z.string().trim().min(1, "Document title is required"),
-        documentType: z.enum(["WAIVER", "CONTRACT", "MEDICAL_CLEARANCE", "ID_PROOF", "OTHER"]).default("WAIVER"),
-        fileUrl: z.string().url().optional().or(z.literal("")),
-        signed: z.boolean().default(false),
-        signatureData: z.string().trim().optional(),
-        expiresAt: z.string().datetime().optional(),
-        notes: z.string().trim().optional(),
-    }),
-});
-
-export const signDocumentSchema = z.object({
-    params: z.object({
-        id: z.string().uuid("Invalid member ID format"),
-        docId: z.string().uuid("Invalid document ID format"),
-    }),
-    body: z.object({
-        signatureData: z.string().trim().min(1, "Signature data is required"),
-        notes: z.string().trim().optional(),
-    }),
-});
-
 export const getMemberByIdSchema = z.object({
     params: z.object({
         id: z.string().uuid("Invalid member ID format"),
@@ -120,7 +79,4 @@ export const listMembersSchema = z.object({
 export type CreateMemberInput = z.input<typeof createMemberSchema>["body"];
 export type UpdateMemberProfileInput = z.input<typeof updateMemberProfileSchema>["body"];
 export type UpdateMemberStatusInput = z.input<typeof updateMemberStatusSchema>["body"];
-export type AddDependentInput = z.input<typeof addDependentSchema>["body"];
-export type AddDocumentInput = z.input<typeof addDocumentSchema>["body"];
-export type SignDocumentInput = z.input<typeof signDocumentSchema>["body"];
 export type ListMembersQuery = z.input<typeof listMembersSchema>["query"];

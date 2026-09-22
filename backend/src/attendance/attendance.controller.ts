@@ -146,50 +146,6 @@ class AttendanceController {
             next(error);
         }
     };
-
-    createVisitorPass = async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const result = await withSpan("AttendanceController.createVisitorPass", async () => {
-                return await this.attendanceService.createVisitorPass(req.body);
-            });
-            return res.status(201).json({
-                success: true,
-                message: "Visitor pass issued successfully",
-                data: result,
-            });
-        } catch (error) {
-            next(error);
-        }
-    };
-
-    listVisitorPasses = async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const result = await withSpan("AttendanceController.listVisitorPasses", async () => {
-                return await this.attendanceService.listVisitorPasses(req.query as any);
-            });
-            return res.status(200).json({
-                success: true,
-                data: result,
-            });
-        } catch (error) {
-            next(error);
-        }
-    };
-
-    checkInVisitorPass = async (req: Request, res: Response, next: NextFunction) => {
-        try {
-            const result = await withSpan("AttendanceController.checkInVisitorPass", async () => {
-                return await this.attendanceService.checkInVisitorPass(req.body);
-            });
-            return res.status(200).json({
-                success: true,
-                message: result.message,
-                data: result.visitorPass,
-            });
-        } catch (error) {
-            next(error);
-        }
-    };
 }
 
 export default new AttendanceController(attendanceService);

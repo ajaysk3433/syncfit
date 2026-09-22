@@ -1,7 +1,7 @@
 import type { App } from "firebase-admin";
 import { getAuth } from "firebase-admin/auth";
 import crypto from "crypto";
-import type { Role, MemberTier, UserStatus, DocumentType } from "@prisma/client";
+import type { Role, MemberTier, UserStatus } from "@prisma/client";
 import { firebaseApp } from "../core/configs/firebase.js";
 import membersRepository, { MembersRepository } from "./members.repository.js";
 import plansService, { PlansService } from "../membership-plans/plans.service.js";
@@ -16,9 +16,6 @@ import type {
     CreateMemberInput,
     UpdateMemberProfileInput,
     UpdateMemberStatusInput,
-    AddDependentInput,
-    AddDocumentInput,
-    SignDocumentInput,
     ListMembersQuery,
 } from "./members.schema.js";
 
@@ -202,108 +199,6 @@ export class MembersService {
             }
 
             return await this.getMemberById(id);
-        });
-    }
-
-    async addDependent(primaryUserId: string, input: AddDependentInput): Promise<any> {
-        return withSpan("MembersService.addDependent", async () => {
-            const primaryMember = await this.membersRepository.findMemberById(primaryUserId);
-            if (!primaryMember || !primaryMember.profile) {
-                throw new NotFoundError("Primary member or member profile not found");
-            }
-
-            // Create pseudo dependent user and profile
-            const tempUid = `dep_${crypto.randomUUID()}`;
-            const dummyEmail = input.email || `dependent.${crypto.randomUUID().slice(0, 8)}@syncfit.internal`;
-
-            const dependentUser = await this.membersRepository.createUserWithProfile(
-                {
-                    firebaseUid: tempUid,
-                    email: dummyEmail,
-                    name: input.name,
-                    role: "MEMBER",
-                    status: "ACTIVE",
-                    memberTier: primaryMember.memberTier || "STANDARD",
-                    ...(input.phone !== undefined ? { phone: input.phone } : {}),
-                },
-                {
-                    ...(input.dateOfBirth ? { dateOfBirth: new Date(input.dateOfBirth) } : {}),
-                    ...(input.gender !== undefined ? { gender: input.gender } : {}),
-                    ...(input.healthNotes !== undefined ? { healthNotes: input.healthNotes } : {}),
-                    ...(primaryMember.name ? { emergencyContactName: primaryMember.name } : {}),
-                    ...(primaryMember.phone ? { emergencyContactPhone: primaryMember.phone } : {}),
-                    emergencyContactRelation: input.relationship || "Primary Member",
-                    primaryMember: { connect: { id: primaryMember.profile.id } },
-                }
-            );
-
-            logger.info(`Added dependent ${dependentUser.id} linked to primary member ${primaryUserId}`);
-            return dependentUser;
-        });
-    }
-
-    async getDependents(primaryUserId: string): Promise<any[]> {
-        return withSpan("MembersService.getDependents", async () => {
-            const member = await this.membersRepository.findMemberById(primaryUserId);
-            if (!member || !member.profile) {
-                throw new NotFoundError("Member not found");
-            }
-            return member.profile.dependents || [];
-        });
-    }
-
-    async getReferrals(userId: string): Promise<any[]> {
-        return withSpan("MembersService.getReferrals", async () => {
-            const member = await this.membersRepository.findMemberById(userId);
-            if (!member) {
-                throw new NotFoundError("Member not found");
-            }
-            return member.referralsGiven || [];
-        });
-    }
-
-    async addDocument(userId: string, input: AddDocumentInput): Promise<any> {
-        return withSpan("MembersService.addDocument", async () => {
-            const member = await this.membersRepository.findMemberById(userId);
-            if (!member) {
-                throw new NotFoundError("Member not found");
-            }
-
-            return await this.membersRepository.createDocument({
-                user: { connect: { id: userId } },
-                title: input.title,
-                documentType: input.documentType as DocumentType,
-                ...(input.fileUrl !== undefined ? { fileUrl: input.fileUrl } : {}),
-                status: input.signed ? "SIGNED" : "PENDING",
-                ...(input.signed ? { signedAt: new Date() } : {}),
-                ...(input.signatureData !== undefined ? { signatureData: input.signatureData } : {}),
-                ...(input.expiresAt ? { expiresAt: new Date(input.expiresAt) } : {}),
-                ...(input.notes !== undefined ? { notes: input.notes } : {}),
-            });
-        });
-    }
-
-    async signDocument(userId: string, docId: string, input: SignDocumentInput): Promise<any> {
-        return withSpan("MembersService.signDocument", async () => {
-            const doc = await this.membersRepository.findDocumentById(docId);
-            if (!doc || doc.userId !== userId) {
-                throw new NotFoundError("Document not found for this member");
-            }
-
-            logger.info(`Signing document ${docId} for member ${userId}`);
-
-            return await this.membersRepository.updateDocument(docId, {
-                status: "SIGNED",
-                signedAt: new Date(),
-                signatureData: input.signatureData,
-                notes: input.notes ? `${doc.notes || ""}\n[Signed]: ${input.notes}`.trim() : doc.notes,
-            });
-        });
-    }
-
-    async getDocuments(userId: string): Promise<any[]> {
-        return withSpan("MembersService.getDocuments", async () => {
-            return await this.membersRepository.findDocumentsByUserId(userId);
         });
     }
 

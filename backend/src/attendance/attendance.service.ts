@@ -1,5 +1,4 @@
-import crypto from "crypto";
-import type { CheckInMethod, AttendanceStatus, VisitorPassType, VisitorPassStatus } from "@prisma/client";
+import type { CheckInMethod, AttendanceStatus } from "@prisma/client";
 import attendanceRepository, { AttendanceRepository } from "./attendance.repository.js";
 import membersRepository, { MembersRepository } from "../members/members.repository.js";
 import plansRepository, { PlansRepository } from "../membership-plans/plans.repository.js";
@@ -16,8 +15,6 @@ import type {
     CheckOutInput,
     AutoCheckoutInput,
     ListAttendanceQuery,
-    CreateVisitorPassInput,
-    CheckInVisitorPassInput,
 } from "./attendance.schema.js";
 
 export class AttendanceService {
@@ -26,10 +23,6 @@ export class AttendanceService {
         private readonly membersRepository: MembersRepository,
         private readonly plansRepository: PlansRepository
     ) {}
-
-    private generatePassCode(): string {
-        return `VP-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
-    }
 
     async checkIn(input: CheckInInput, checkedInByStaffId?: string): Promise<any> {
         return withSpan("AttendanceService.checkIn", async () => {
@@ -581,84 +574,6 @@ export class AttendanceService {
                     highFrequency_13_plus_per_month: highFrequency,
                 },
                 topActiveMembers: topActive.slice(0, 10),
-            };
-        });
-    }
-
-    async createVisitorPass(input: CreateVisitorPassInput): Promise<any> {
-        return withSpan("AttendanceService.createVisitorPass", async () => {
-            const passCode = this.generatePassCode();
-            const validFrom = new Date();
-            const validDays = input.validDays ?? 1;
-            const validUntil = new Date(validFrom.getTime() + validDays * 24 * 60 * 60 * 1000);
-
-            if (input.hostMemberId) {
-                const host = await this.membersRepository.findMemberById(input.hostMemberId);
-                if (!host) {
-                    throw new NotFoundError("Host member not found");
-                }
-            }
-
-            logger.info(`Creating visitor pass ${passCode} for visitor ${input.visitorName}`);
-
-            return await this.attendanceRepository.createVisitorPass({
-                passCode,
-                visitorName: input.visitorName,
-                ...(input.visitorEmail ? { visitorEmail: input.visitorEmail } : {}),
-                ...(input.visitorPhone ? { visitorPhone: input.visitorPhone } : {}),
-                passType: (input.passType as VisitorPassType) || "DAY_PASS",
-                validFrom,
-                validUntil,
-                status: "ACTIVE",
-                ...(input.notes !== undefined ? { notes: input.notes } : {}),
-                ...(input.hostMemberId ? { hostMember: { connect: { id: input.hostMemberId } } } : {}),
-            });
-        });
-    }
-
-    async listVisitorPasses(query?: { status?: VisitorPassStatus; passType?: VisitorPassType; search?: string }): Promise<any[]> {
-        return withSpan("AttendanceService.listVisitorPasses", async () => {
-            const where: any = {};
-            if (query?.status) where.status = query.status;
-            if (query?.passType) where.passType = query.passType;
-            if (query?.search) {
-                where.OR = [
-                    { visitorName: { contains: query.search, mode: "insensitive" } },
-                    { passCode: { contains: query.search, mode: "insensitive" } },
-                    { visitorEmail: { contains: query.search, mode: "insensitive" } },
-                ];
-            }
-            return await this.attendanceRepository.listVisitorPasses(where);
-        });
-    }
-
-    async checkInVisitorPass(input: CheckInVisitorPassInput): Promise<any> {
-        return withSpan("AttendanceService.checkInVisitorPass", async () => {
-            const pass = await this.attendanceRepository.findVisitorPassByCode(input.passCode);
-            if (!pass) {
-                throw new NotFoundError("Visitor pass not found with provided pass code");
-            }
-
-            if (pass.status !== "ACTIVE") {
-                throw new ForbiddenError(`Visitor pass is invalid: status is ${pass.status.toLowerCase()}`);
-            }
-
-            if (new Date() > new Date(pass.validUntil)) {
-                await this.attendanceRepository.updateVisitorPass(pass.id, { status: "EXPIRED" });
-                throw new ForbiddenError("Visitor pass has expired");
-            }
-
-            const updated = await this.attendanceRepository.updateVisitorPass(pass.id, {
-                status: "USED",
-                usedAt: new Date(),
-                notes: input.notes ? `${pass.notes || ""}\n[Check-in at ${input.location || "Main Gym"}]: ${input.notes}`.trim() : pass.notes,
-            });
-
-            logger.info(`Visitor pass ${pass.passCode} used for visitor ${pass.visitorName} at ${input.location || "Main Gym"}`);
-
-            return {
-                message: "Visitor pass verified and checked in successfully",
-                visitorPass: updated,
             };
         });
     }

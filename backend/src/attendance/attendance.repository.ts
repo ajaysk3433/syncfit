@@ -1,4 +1,4 @@
-import type { PrismaClient, Attendance, VisitorPass, Prisma } from "@prisma/client";
+import type { PrismaClient, Attendance, Prisma } from "@prisma/client";
 import prisma from "../core/configs/prisma.js";
 import { withSpan } from "../core/telemetry/tracer.js";
 
@@ -164,60 +164,6 @@ export class AttendanceRepository {
                     denialReason: true,
                     notes: true,
                     checkedInBy: true,
-                },
-            });
-        });
-    }
-
-    async createVisitorPass(data: Prisma.VisitorPassCreateInput): Promise<VisitorPass> {
-        return withSpan("AttendanceRepository.createVisitorPass", async () => {
-            return await this.db.visitorPass.create({
-                data,
-                include: {
-                    hostMember: {
-                        select: { id: true, name: true, email: true },
-                    },
-                },
-            });
-        });
-    }
-
-    async findVisitorPassByCode(passCode: string): Promise<any | null> {
-        return withSpan("AttendanceRepository.findVisitorPassByCode", async () => {
-            return await this.db.visitorPass.findUnique({
-                where: { passCode },
-                include: {
-                    hostMember: {
-                        select: { id: true, name: true, email: true },
-                    },
-                },
-            });
-        });
-    }
-
-    async listVisitorPasses(where: Prisma.VisitorPassWhereInput): Promise<any[]> {
-        return withSpan("AttendanceRepository.listVisitorPasses", async () => {
-            return await this.db.visitorPass.findMany({
-                where,
-                include: {
-                    hostMember: {
-                        select: { id: true, name: true, email: true },
-                    },
-                },
-                orderBy: { createdAt: "desc" },
-            });
-        });
-    }
-
-    async updateVisitorPass(id: string, data: Prisma.VisitorPassUpdateInput): Promise<VisitorPass> {
-        return withSpan("AttendanceRepository.updateVisitorPass", async () => {
-            return await this.db.visitorPass.update({
-                where: { id },
-                data,
-                include: {
-                    hostMember: {
-                        select: { id: true, name: true, email: true },
-                    },
                 },
             });
         });
