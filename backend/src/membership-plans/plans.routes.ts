@@ -22,19 +22,19 @@ router.post(
     "/",
     authenticate,
     authorizeRoles("ADMIN", "MANAGER"),
-    validate(createPlanSchema),
+    //validate(createPlanSchema),
     plansController.createPlan
 );
 
 router.get(
     "/",
-    validate(listPlansSchema),
+    //validate(listPlansSchema),
     plansController.listPlans
 );
 
 router.get(
     "/:id",
-    validate(getPlanByIdSchema),
+    //validate(getPlanByIdSchema),
     plansController.getPlanById
 );
 
@@ -42,7 +42,7 @@ router.patch(
     "/:id",
     authenticate,
     authorizeRoles("ADMIN", "MANAGER"),
-    validate(updatePlanSchema),
+    //validate(updatePlanSchema),
     plansController.updatePlan
 );
 
@@ -55,7 +55,7 @@ memberMembershipsRouter.post(
     "/",
     authenticate,
     authorizeRoles("ADMIN", "MANAGER", "FRONT_DESK"),
-    validate(assignMembershipSchema),
+    //validate(assignMembershipSchema),
     plansController.assignMembership
 );
 
@@ -69,7 +69,7 @@ memberMembershipsRouter.post(
     "/pause",
     authenticate,
     authorizeRoles("ADMIN", "MANAGER", "FRONT_DESK"),
-    validate(pauseMembershipSchema),
+    //validate(pauseMembershipSchema),
     plansController.pauseMembership
 );
 
@@ -77,7 +77,7 @@ memberMembershipsRouter.post(
     "/resume",
     authenticate,
     authorizeRoles("ADMIN", "MANAGER", "FRONT_DESK"),
-    validate(resumeMembershipSchema),
+    //validate(resumeMembershipSchema),
     plansController.resumeMembership
 );
 
@@ -93,7 +93,7 @@ memberMembershipsRouter.post(
     "/renew",
     authenticate,
     authorizeRoles("ADMIN", "MANAGER", "FRONT_DESK"),
-    validate(renewMembershipSchema),
+    //validate(renewMembershipSchema),
     plansController.renewMembership
 );
 
@@ -101,6 +101,6 @@ memberMembershipsRouter.post(
     "/upgrade",
     authenticate,
     authorizeRoles("ADMIN", "MANAGER", "FRONT_DESK"),
-    validate(upgradeMembershipSchema),
+    //validate(upgradeMembershipSchema),
     plansController.upgradeMembership
 );
