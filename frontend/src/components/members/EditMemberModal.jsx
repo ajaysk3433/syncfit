@@ -4,7 +4,7 @@ import { membersApi } from "../../api/membersApi";
 import { useToast } from "../../context/ToastContext";
 import { Edit3, Check } from "lucide-react";
 
-export const EditMemberModal = ({ isOpen, member, onClose, onUpdated }) => {
+export const EditMemberModal = ({ isOpen, member, onClose, onUpdated, zIndex }) => {
   const toast = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -49,7 +49,7 @@ export const EditMemberModal = ({ isOpen, member, onClose, onUpdated }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!member) return;
+    if (!member?.id) return;
     setSubmitting(true);
 
     try {
@@ -63,7 +63,7 @@ export const EditMemberModal = ({ isOpen, member, onClose, onUpdated }) => {
         city: formData.city.trim() || undefined,
         address: formData.address.trim() || undefined,
         gender: formData.gender || undefined,
-        dateOfBirth: formData.dateOfBirth || undefined,
+        dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString() : undefined,
         emergencyContactName: formData.emergencyContactName.trim() || undefined,
         emergencyContactPhone: formData.emergencyContactPhone.trim() || undefined,
         emergencyContactRelation: formData.emergencyContactRelation.trim() || undefined,
@@ -90,6 +90,7 @@ export const EditMemberModal = ({ isOpen, member, onClose, onUpdated }) => {
       title={`Edit Profile: ${member?.name || "Member"}`}
       icon={<Edit3 size={20} />}
       size="lg"
+      zIndex={zIndex}
       footer={
         <>
           <button className="btn btn-secondary" onClick={onClose} disabled={submitting}>

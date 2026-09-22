@@ -16,6 +16,8 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  CreditCard,
+  Edit,
 } from "lucide-react";
 import { StatusBadge, TierBadge } from "../components/common/Badge";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
@@ -38,6 +40,7 @@ export const MembersPage = () => {
   const [selectedMemberId, setSelectedMemberId] = useState(null);
   const [editingMember, setEditingMember] = useState(null);
   const [subActionConfig, setSubActionConfig] = useState(null); // { type, member, membership }
+  const [detailRefreshKey, setDetailRefreshKey] = useState(0);
 
   const fetchMembers = useCallback(async (page = 1) => {
     setLoading(true);
@@ -212,6 +215,8 @@ export const MembersPage = () => {
               member={member}
               onSelect={(m) => setSelectedMemberId(m.id)}
               onOpenQr={handleOpenQr}
+              onEdit={(m) => setEditingMember(m)}
+              onAssignPlan={(m) => setSubActionConfig({ type: "ASSIGN", member: m })}
             />
           ))}
         </div>
@@ -275,16 +280,32 @@ export const MembersPage = () => {
                       {member.profile?.referralCode || "—"}
                     </td>
                     <td style={{ textAlign: "right" }}>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedMemberId(member.id);
-                        }}
-                      >
-                        <QrCode size={13} />
-                        <span>Pass & Plans</span>
-                      </button>
+                      <div style={{ display: "inline-flex", gap: "6px" }} onClick={(e) => e.stopPropagation()}>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => setSelectedMemberId(member.id)}
+                          title="View Digital Pass & Full Profile"
+                        >
+                          <QrCode size={13} />
+                          <span>Details</span>
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => setSubActionConfig({ type: "ASSIGN", member })}
+                          title="Assign Membership Plan"
+                        >
+                          <CreditCard size={13} />
+                          <span>Plan</span>
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => setEditingMember(member)}
+                          title="Edit Profile"
+                        >
+                          <Edit size={13} />
+                          <span>Edit</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -341,10 +362,14 @@ export const MembersPage = () => {
       />
 
       <MemberDetailModal
+        key={`${selectedMemberId}-${detailRefreshKey}`}
         isOpen={!!selectedMemberId}
         memberId={selectedMemberId}
         onClose={() => setSelectedMemberId(null)}
-        onMemberUpdated={() => fetchMembers(pagination.page)}
+        onMemberUpdated={() => {
+          fetchMembers(pagination.page);
+          setDetailRefreshKey((k) => k + 1);
+        }}
         onOpenSubscriptionAction={(type, member, membership) => {
           setSubActionConfig({ type, member, membership });
         }}
@@ -357,9 +382,11 @@ export const MembersPage = () => {
         <EditMemberModal
           isOpen={!!editingMember}
           member={editingMember}
+          zIndex={1100}
           onClose={() => setEditingMember(null)}
           onUpdated={() => {
             fetchMembers(pagination.page);
+            setDetailRefreshKey((k) => k + 1);
             setSelectedMemberId(editingMember.id);
           }}
         />
@@ -371,12 +398,11 @@ export const MembersPage = () => {
           actionType={subActionConfig.type}
           member={subActionConfig.member}
           membership={subActionConfig.membership}
+          zIndex={1100}
           onClose={() => setSubActionConfig(null)}
           onCompleted={() => {
             fetchMembers(pagination.page);
-            if (selectedMemberId) {
-              // Trigger reload in detail modal if open
-            }
+            setDetailRefreshKey((k) => k + 1);
           }}
         />
       )}

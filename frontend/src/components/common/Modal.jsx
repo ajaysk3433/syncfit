@@ -8,7 +8,8 @@ export const Modal = ({
   icon,
   children,
   footer,
-  size = "md", // md, lg, xl
+  size = "md", // sm, md, lg, xl, full
+  zIndex,
 }) => {
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -21,7 +22,11 @@ export const Modal = ({
       window.addEventListener("keydown", handleKeyDown);
     }
     return () => {
-      document.body.style.overflow = "unset";
+      // Check if any other modal backdrop remains
+      const openModals = document.querySelectorAll(".modal-backdrop");
+      if (openModals.length <= 1) {
+        document.body.style.overflow = "unset";
+      }
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen, onClose]);
@@ -29,7 +34,11 @@ export const Modal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="modal-backdrop animate-fade-in" onClick={onClose}>
+    <div
+      className="modal-backdrop animate-fade-in"
+      onClick={onClose}
+      style={zIndex ? { zIndex } : undefined}
+    >
       <div
         className={`modal-box ${size} animate-slide-bottom`}
         onClick={(e) => e.stopPropagation()}
@@ -38,7 +47,7 @@ export const Modal = ({
       >
         <div className="modal-header">
           <div className="modal-title">
-            {icon && <span style={{ color: "var(--accent-cyan)" }}>{icon}</span>}
+            {icon && <span style={{ color: "var(--accent-cyan)", display: "flex", alignItems: "center" }}>{icon}</span>}
             <span>{title}</span>
           </div>
           <button
@@ -57,3 +66,4 @@ export const Modal = ({
     </div>
   );
 };
+

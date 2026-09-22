@@ -19,6 +19,7 @@ export const SubscriptionActionModal = ({
   membership,
   onClose,
   onCompleted,
+  zIndex,
 }) => {
   const toast = useToast();
   const [plans, setPlans] = useState([]);
@@ -172,6 +173,7 @@ export const SubscriptionActionModal = ({
       title={config.title}
       icon={config.icon}
       size="md"
+      zIndex={zIndex}
       footer={
         <>
           <button className="btn btn-secondary" onClick={onClose} disabled={submitting}>

@@ -204,10 +204,30 @@ export const MemberDetailModal = ({
               </div>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
               <TierBadge tier={member.memberTier} />
               <StatusBadge status={member.status} />
               <RoleBadge role={member.role} />
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  onOpenEditProfile(member);
+                }}
+                title="Edit member information"
+              >
+                <Edit size={13} />
+                <span>Edit Profile</span>
+              </button>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  onOpenSubscriptionAction("ASSIGN", member);
+                }}
+                title="Assign new plan"
+              >
+                <CreditCard size={13} />
+                <span>Assign Plan</span>
+              </button>
             </div>
           </div>
 
@@ -215,9 +235,11 @@ export const MemberDetailModal = ({
           <div
             style={{
               display: "flex",
-              gap: "10px",
+              gap: "8px",
               borderBottom: "1px solid var(--border-subtle)",
               paddingBottom: "10px",
+              overflowX: "auto",
+              flexWrap: "wrap",
             }}
           >
             <button
@@ -252,13 +274,23 @@ export const MemberDetailModal = ({
 
           {/* TAB 1: Profile & Status Updater */}
           {activeTab === "profile" && (
-            <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: "20px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "20px" }}>
               {/* Personal & Emergency Info */}
               <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                 <div className="glass-card" style={{ padding: "16px" }}>
-                  <h4 style={{ fontSize: "13px", color: "var(--accent-cyan)", textTransform: "uppercase", marginBottom: "12px", fontWeight: 700 }}>
-                    Personal Details
-                  </h4>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                    <h4 style={{ fontSize: "13px", color: "var(--accent-cyan)", textTransform: "uppercase", fontWeight: 700, margin: 0 }}>
+                      Personal Details
+                    </h4>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      style={{ padding: "2px 8px", fontSize: "11px", height: "auto" }}
+                      onClick={() => onOpenEditProfile(member)}
+                    >
+                      <Edit size={11} />
+                      <span>Edit</span>
+                    </button>
+                  </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "13px" }}>
                     <div>
                       <span style={{ color: "var(--text-muted)" }}>Date of Birth:</span>

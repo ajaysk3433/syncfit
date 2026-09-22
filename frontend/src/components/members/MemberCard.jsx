@@ -1,8 +1,8 @@
 import React from "react";
-import { Phone, Mail, QrCode, CreditCard, ChevronRight } from "lucide-react";
+import { Phone, Mail, QrCode, CreditCard, ChevronRight, Edit } from "lucide-react";
 import { StatusBadge, TierBadge } from "../common/Badge";
 
-export const MemberCard = ({ member, onSelect, onOpenQr }) => {
+export const MemberCard = ({ member, onSelect, onOpenQr, onEdit, onAssignPlan }) => {
   const activeMembership = member.memberships?.find(
     (m) => m.status === "ACTIVE" && new Date(m.endDate) >= new Date()
   );
@@ -107,24 +107,58 @@ export const MemberCard = ({ member, onSelect, onOpenQr }) => {
           marginTop: "16px",
           paddingTop: "12px",
           borderTop: "1px solid var(--border-subtle)",
+          gap: "8px",
+          flexWrap: "wrap",
         }}
       >
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenQr(member);
-          }}
-        >
-          <QrCode size={13} />
-          <span>Access QR</span>
-        </button>
+        <div style={{ display: "flex", gap: "6px" }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenQr ? onOpenQr(member) : onSelect(member);
+            }}
+            title="Digital QR Pass & Profile"
+          >
+            <QrCode size={13} />
+            <span>Pass</span>
+          </button>
+
+          {onAssignPlan && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAssignPlan(member);
+              }}
+              title="Assign Membership Plan"
+            >
+              <CreditCard size={13} />
+              <span>Plan</span>
+            </button>
+          )}
+
+          {onEdit && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(member);
+              }}
+              title="Edit Profile"
+            >
+              <Edit size={13} />
+              <span>Edit</span>
+            </button>
+          )}
+        </div>
 
         <span style={{ display: "flex", alignItems: "center", color: "var(--accent-cyan)", fontSize: "12px", fontWeight: 600 }}>
-          View Details
+          Details
           <ChevronRight size={14} />
         </span>
       </div>
     </div>
   );
 };
+
