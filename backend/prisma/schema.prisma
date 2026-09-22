@@ -28,6 +28,59 @@ enum MemberTier {
   VIP
 }
 
+enum MembershipStatus {
+  ACTIVE
+  PAUSED
+  EXPIRED
+  CANCELLED
+  PENDING
+}
+
+enum DocumentType {
+  WAIVER
+  CONTRACT
+  MEDICAL_CLEARANCE
+  ID_PROOF
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  SIGNED
+  VERIFIED
+  REJECTED
+}
+
+enum CheckInMethod {
+  QR_CODE
+  BARCODE
+  MANUAL
+  CARD
+  BIOMETRIC
+  PIN
+}
+
+enum AttendanceStatus {
+  CHECKED_IN
+  CHECKED_OUT
+  AUTO_CHECKED_OUT
+  DENIED
+}
+
+enum VisitorPassType {
+  DAY_PASS
+  GUEST_PASS
+  TRIAL_PASS
+  EVENT_PASS
+}
+
+enum VisitorPassStatus {
+  ACTIVE
+  USED
+  EXPIRED
+  REVOKED
+}
+
 model User {
   id          String      @id @default(uuid())
   firebaseUid String      @unique
@@ -41,5 +94,136 @@ model User {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
+  // Relations
+  profile         MemberProfile?
+  memberships     Membership[]
+  attendances     Attendance[]
+  documents       MemberDocument[]
+  visitorPasses   VisitorPass[]
+  referralsGiven  MemberProfile[]  @relation("UserReferrals")
+
   @@map("users")
+}
+
+model MemberProfile {
+  id                       String          @id @default(uuid())
+  userId                   String          @unique
+  user                     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dateOfBirth              DateTime?
+  gender                   String?
+  address                  String?
+  city                     String?
+  emergencyContactName     String?
+  emergencyContactPhone    String?
+  emergencyContactRelation String?
+  healthNotes              String?
+  fitnessGoals             String[]        @default([])
+  preferences              String?
+  referralCode             String?         @unique
+  referredById             String?
+  referredBy               User?           @relation("UserReferrals", fields: [referredById], references: [id], onDelete: SetNull)
+  primaryMemberId          String?
+  primaryMember            MemberProfile?  @relation("FamilyDependents", fields: [primaryMemberId], references: [id], onDelete: SetNull)
+  dependents               MemberProfile[] @relation("FamilyDependents")
+  qrCodeKey                String          @unique @default(uuid())
+  barcode                  String?         @unique
+  notes                    String?
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+
+  @@map("member_profiles")
+}
+
+model MembershipPlan {
+  id           String       @id @default(uuid())
+  name         String
+  tier         MemberTier   @default(STANDARD)
+  description  String?
+  price        Float
+  durationDays Int
+  features     String[]     @default([])
+  isActive     Boolean      @default(true)
+  memberships  Membership[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@map("membership_plans")
+}
+
+model Membership {
+  id                 String           @id @default(uuid())
+  userId             String
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId             String
+  plan               MembershipPlan   @relation(fields: [planId], references: [id], onDelete: Restrict)
+  startDate          DateTime
+  endDate            DateTime
+  status             MembershipStatus @default(ACTIVE)
+  autoRenew          Boolean          @default(true)
+  pausedAt           DateTime?
+  resumedAt          DateTime?
+  cancelledAt        DateTime?
+  cancellationReason String?
+  notes              String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@map("memberships")
+}
+
+model MemberDocument {
+  id            String         @id @default(uuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  documentType  DocumentType   @default(WAIVER)
+  fileUrl       String?
+  status        DocumentStatus @default(PENDING)
+  signedAt      DateTime?
+  signatureData String?
+  expiresAt     DateTime?
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@map("member_documents")
+}
+
+model Attendance {
+  id              String           @id @default(uuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkInTime     DateTime         @default(now())
+  checkOutTime    DateTime?
+  durationMinutes Int?
+  method          CheckInMethod    @default(MANUAL)
+  status          AttendanceStatus @default(CHECKED_IN)
+  denialReason    String?
+  location        String?
+  notes           String?
+  checkedInBy     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@map("attendances")
+}
+
+model VisitorPass {
+  id           String            @id @default(uuid())
+  passCode     String            @unique
+  visitorName  String
+  visitorEmail String?
+  visitorPhone String?
+  hostMemberId String?
+  hostMember   User?             @relation(fields: [hostMemberId], references: [id], onDelete: SetNull)
+  passType     VisitorPassType   @default(DAY_PASS)
+  validFrom    DateTime
+  validUntil   DateTime
+  status       VisitorPassStatus @default(ACTIVE)
+  usedAt       DateTime?
+  notes        String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@map("visitor_passes")
 }
