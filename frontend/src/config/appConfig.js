@@ -2,10 +2,20 @@
  * SyncFit Global Application Configuration
  * Centralized settings for API endpoints, retry policies, backoff factors, and timeouts.
  */
+const getEnv = (key) => {
+  if (typeof import.meta !== "undefined" && import.meta.env && import.meta.env[key] !== undefined) {
+    return import.meta.env[key];
+  }
+  if (typeof process !== "undefined" && process.env && process.env[key] !== undefined) {
+    return process.env[key];
+  }
+  return undefined;
+};
+
 export const appConfig = {
   api: {
     // Base URL for the backend API server
-    baseUrl: process.env.REACT_APP_API_BASE_URL || "http://localhost:8080",
+    baseUrl: getEnv("VITE_API_BASE_URL") || getEnv("REACT_APP_API_BASE_URL") || "http://localhost:8080",
 
     // Maximum number of retry attempts when the server is not responding
     maxRetries: 3,
