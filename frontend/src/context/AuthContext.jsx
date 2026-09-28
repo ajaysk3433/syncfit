@@ -7,6 +7,7 @@ import {
 import { auth } from "../config/firebase";
 import { authApi } from "../api/authApi";
 import { membersApi } from "../api/membersApi";
+import appConfig from "../config/appConfig";
 
 const AuthContext = createContext(null);
 
@@ -84,11 +85,28 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Periodic health check
+  // Periodic health check (polls every 30s when healthy, retries in 2s when server is offline/not responding)
   useEffect(() => {
-    checkBackendHealth();
-    const interval = setInterval(checkBackendHealth, 30000);
-    return () => clearInterval(interval);
+    let timerId;
+    let isCancelled = false;
+
+    const runHealthCheck = async () => {
+      const isHealthy = await checkBackendHealth();
+      if (isCancelled) return;
+
+      // When server is not responding/offline, wait according to appConfig retry delay; once healthy, poll at healthy interval
+      const nextDelay = isHealthy
+        ? (appConfig.healthCheck?.pollIntervalHealthy || 30000)
+        : (appConfig.healthCheck?.retryIntervalOffline || 2000);
+      timerId = setTimeout(runHealthCheck, nextDelay);
+    };
+
+    runHealthCheck();
+
+    return () => {
+      isCancelled = true;
+      if (timerId) clearTimeout(timerId);
+    };
   }, [checkBackendHealth]);
 
   // Sign in with email and password via Firebase

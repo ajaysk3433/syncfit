@@ -148,7 +148,7 @@ export const Navbar = ({ onOpenCheckIn }) => {
       </header>
 
       {/* Backend Configuration Modal */}
-      <Modal
+      {/* <Modal
         isOpen={isConfigOpen}
         onClose={() => setIsConfigOpen(false)}
         title="Backend & Connection Status"
@@ -221,7 +221,7 @@ export const Navbar = ({ onOpenCheckIn }) => {
             )}
           </div>
         </div>
-      </Modal>
+      </Modal> */}
     </>
   );
 };

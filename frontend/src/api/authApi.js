@@ -13,6 +13,8 @@ export const authApi = {
   checkHealth: async () => {
     return await apiRequest("/health", {
       method: "GET",
+      retries: 0, // Quick single probe; AuthContext manages polling interval
+      timeout: 5000,
     });
   },
 

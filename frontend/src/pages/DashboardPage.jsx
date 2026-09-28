@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { attendanceApi } from "../api/attendanceApi";
+import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { OccupancyGauge } from "../components/attendance/OccupancyGauge";
 import { ActiveAttendeesList } from "../components/attendance/ActiveAttendeesList";
@@ -16,6 +17,7 @@ import {
 
 export const DashboardPage = () => {
   const toast = useToast();
+  const { backendHealth } = useAuth();
   const [occupancy, setOccupancy] = useState(null);
   const [overviewStats, setOverviewStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -44,9 +46,15 @@ export const DashboardPage = () => {
 
   useEffect(() => {
     fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 15000); // 15s refresh
+
+    // Only start periodic polling when backend is healthy
+    if (backendHealth.status !== "HEALTHY") {
+      return;
+    }
+
+    const interval = setInterval(fetchDashboardData, 30000);
     return () => clearInterval(interval);
-  }, [fetchDashboardData]);
+  }, [fetchDashboardData, backendHealth.status]);
 
   const handleCheckOut = async ({ attendanceId, memberId }) => {
     try {
