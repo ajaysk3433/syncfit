@@ -81,6 +81,7 @@ export async function apiRequest(endpoint, options = {}) {
       networkError.status = 0;
       throw networkError;
     }
+
     throw error;
   }
 }

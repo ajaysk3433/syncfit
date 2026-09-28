@@ -70,39 +70,38 @@ export const Navbar = ({ onOpenCheckIn }) => {
             style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,0.06)" }}
           >
             <span
-              className={`dot-indicator ${
-                backendHealth.status === "HEALTHY" ? "healthy" : "offline"
-              }`}
+              className={`dot-indicator ${backendHealth.status === "HEALTHY" ? "healthy" : "offline"
+                }`}
             />
             <span>
               {backendHealth.status === "HEALTHY"
                 ? "API Live"
                 : backendHealth.status === "OFFLINE"
-                ? "API Offline"
-                : "Checking API"}
+                  ? "API Offline"
+                  : "Checking API"}
             </span>
           </button>
         </div>
 
         <div className="nav-actions-group">
           {/* Quick Check-In Station Button */}
-          <button
+          {/* <button
             className="btn btn-emerald btn-sm"
             onClick={onOpenCheckIn}
             id="quick-check-in-btn"
           >
             <QrCode size={15} />
             <span>Fast Check-In</span>
-          </button>
+          </button> */}
 
           {/* Settings / API Config Modal Toggle */}
-          <button
+          {/* <button
             className="btn-icon"
             onClick={() => setIsConfigOpen(true)}
             title="Backend Configuration"
           >
             <Settings size={17} />
-          </button>
+          </button> */}
 
           {/* User Profile & Role Info */}
           <div style={{ display: "flex", alignItems: "center", gap: "12px", paddingLeft: "12px", borderLeft: "1px solid var(--border-subtle)" }}>
@@ -204,9 +203,8 @@ export const Navbar = ({ onOpenCheckIn }) => {
                 Server Status
               </span>
               <span
-                className={`badge ${
-                  backendHealth.status === "HEALTHY" ? "badge-active" : "badge-suspended"
-                }`}
+                className={`badge ${backendHealth.status === "HEALTHY" ? "badge-active" : "badge-suspended"
+                  }`}
               >
                 {backendHealth.status}
               </span>
