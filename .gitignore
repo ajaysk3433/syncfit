@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build & Dist
+dist/
+build/
+web-build/
+
+# Expo & Metro
+.expo/
+.metro-health-check*
+
+# Logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.log
+
+# Environment
+.env.local
+.env*.local
