@@ -9,6 +9,7 @@ import React, {
 import {
   signInWithEmailAndPassword,
   signOut as fbSignOut,
+  sendPasswordResetEmail,
   onAuthStateChanged,
   type User as FirebaseUser,
 } from 'firebase/auth';
@@ -40,6 +41,7 @@ interface AuthContextType {
   isBackendConnected: boolean;
   signIn: (gymId: string, email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  sendPasswordReset: (gymId: string, email: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
   setActiveAttendance: (att: AttendanceRecord | null) => void;
   setActiveGym: (gym: ActiveGymInfo | null) => void;
@@ -190,37 +192,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           };
         }
 
-        // Step 2: Compute gym-scoped email format
+        // Step 2: Compute gym-scoped email format using Plus-Addressing:
+        // Example: ajay@gmail.com at GYMB-2002 -> ajay+gymb2002@gmail.com
+        // This ensures Firebase password reset emails are delivered directly to the real inbox!
         const cleanPrefix = cleanGymCode.toLowerCase().replace(/[^a-z0-9]/g, '');
-        const scopedEmail = `${cleanPrefix}_${email.trim().toLowerCase()}`;
+        const rawEmail = email.trim().toLowerCase();
+        const [namePart, domainPart] = rawEmail.split('@');
+        const plusScopedEmail = domainPart ? `${namePart}+${cleanPrefix}@${domainPart}` : `${namePart}_${cleanPrefix}`;
+        const legacyPrefixEmail = `${cleanPrefix}_${rawEmail}`;
 
         // Step 3: Authenticate with Firebase Auth
         let credential;
         try {
-          // Primary: Try gym-scoped email
+          // Primary: Try plus-scoped email (ajay+gymb2002@gmail.com)
           credential = await signInWithEmailAndPassword(
             auth,
-            scopedEmail,
+            plusScopedEmail,
             password
           );
         } catch (scopedErr: any) {
-          // Secondary fallback: Try direct raw email for admin/demo or pre-existing accounts
-          if (
-            scopedErr.code === 'auth/user-not-found' ||
-            scopedErr.code === 'auth/invalid-credential' ||
-            scopedErr.code === 'auth/invalid-email'
-          ) {
+          // Fallback 1: Try legacy prefix email (gymb2002_ajay@gmail.com)
+          try {
+            credential = await signInWithEmailAndPassword(
+              auth,
+              legacyPrefixEmail,
+              password
+            );
+          } catch {
+            // Fallback 2: Try direct raw email for admin or legacy accounts
             try {
               credential = await signInWithEmailAndPassword(
                 auth,
-                email.trim().toLowerCase(),
+                rawEmail,
                 password
               );
             } catch {
               throw scopedErr;
             }
-          } else {
-            throw scopedErr;
           }
         }
 
@@ -232,6 +240,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     },
     [fetchProfile, setActiveGym]
+  );
+
+  /**
+   * Send Password Reset Email directly via Firebase Auth
+   * Uses plus-addressing (name+gymCode@domain) so Firebase delivers directly to real inbox!
+   */
+  const sendPasswordReset = useCallback(
+    async (gymId: string, email: string) => {
+      const cleanGymCode = gymId.trim().toUpperCase();
+      if (!cleanGymCode) {
+        throw new Error('Please enter your Gym ID.');
+      }
+      const rawEmail = email.trim().toLowerCase();
+      if (!rawEmail) {
+        throw new Error('Please enter your email address.');
+      }
+
+      const cleanPrefix = cleanGymCode.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const [namePart, domainPart] = rawEmail.split('@');
+      const plusScopedEmail = domainPart ? `${namePart}+${cleanPrefix}@${domainPart}` : rawEmail;
+      const legacyPrefixEmail = `${cleanPrefix}_${rawEmail}`;
+
+      // Try sending password reset to plus-scoped email
+      try {
+        await sendPasswordResetEmail(auth, plusScopedEmail);
+      } catch (err: any) {
+        if (err.code === 'auth/user-not-found') {
+          // Fallback to legacy prefix email or raw email
+          try {
+            await sendPasswordResetEmail(auth, legacyPrefixEmail);
+          } catch {
+            await sendPasswordResetEmail(auth, rawEmail);
+          }
+        } else {
+          throw err;
+        }
+      }
+    },
+    []
   );
 
   const signOut = useCallback(async () => {
@@ -259,6 +306,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       isBackendConnected,
       signIn,
       signOut,
+      sendPasswordReset,
       refreshProfile: fetchProfile,
       setActiveAttendance,
       setActiveGym,
@@ -274,6 +322,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       isBackendConnected,
       signIn,
       signOut,
+      sendPasswordReset,
       fetchProfile,
       setActiveGym,
     ]

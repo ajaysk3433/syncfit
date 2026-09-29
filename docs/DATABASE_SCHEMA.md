@@ -358,19 +358,26 @@ enum AttendanceStatus {
 
 ---
 
-## 4. Multi-Tenant Cross-Gym Strategy
+## 4. Multi-Tenant Cross-Gym Strategy & Native Password Reset Delivery
 
-SyncFit implements a **Federated Hybrid Multi-Tenant Identity Model**:
+SyncFit implements a **Federated Hybrid Multi-Tenant Identity Model with Sub-Addressing (Option 1)**:
 
 1. **Global Uniqueness vs. Tenant Separation**:
-   - In single-tenant systems, `User.email` is globally unique. If a member changes gyms, duplicate email registrations fail.
-   - SyncFit stores `rawEmail` (the member's real email, e.g., `member@example.com`) alongside a gym-scoped authentication email in `User.email`:
-     $$\text{email} = \text{cleanGymCode} \mathbin{\_} \text{rawEmail}$$
-     *Example*: `spar4531_member@example.com` at Spartan Fitness, and `synclinkmain_member@example.com` at SyncFit Flagship.
-2. **PostgreSQL & Firebase Harmony**:
+   - In single-tenant systems, `User.email` is globally unique. If a member leaves Gym A and joins Gym B, duplicate email registrations fail.
+   - SyncFit stores `rawEmail` (the member's real email, e.g., `member@example.com`) alongside a gym-scoped authentication email in `User.email` using **RFC 5233 Sub-Addressing (Plus-Addressing)**:
+     $$\text{email} = \text{username} + \text{cleanGymCode} @ \text{domain}$$
+     *Example*: `alex+spar4531@gmail.com` at Spartan Fitness, and `alex+synclinkmain@gmail.com` at SyncFit Flagship.
+2. **Native Firebase Password Reset Routing (Option 1)**:
+   - All major email providers (Google Workspace, Gmail, Microsoft Outlook/Office 365, Apple iCloud, ProtonMail) automatically strip `+tag` labels upon receiving an email.
+   - When a member requests a password reset on mobile by providing their Gym ID (`SPAR-4531`) and email (`alex@gmail.com`), Firebase Auth dispatches the reset link to `alex+spar4531@gmail.com`.
+   - The mail exchange routes the message straight into `alex@gmail.com`'s inbox with zero custom SMTP servers or relay microservices required.
+   - Firebase natively generates the cryptographic one-time token, hosts the secure password reset page, and updates the credentials.
+3. **Full Backward Compatibility**:
+   - The mobile authentication layer dynamically attempts plus-scoped credentials (`alex+spar4531@gmail.com`), legacy prefix credentials (`spar4531_alex@gmail.com`), and raw credentials (`admin@syncfit.com`), ensuring seamless transitions for all existing accounts.
+4. **PostgreSQL & Firebase Harmony**:
    - Both PostgreSQL unique constraints and Firebase Auth account limits are respected without modifying core auth infrastructure.
-   - Member John can hold active memberships at Gym A and Gym B simultaneously with completely isolated records, payment terms, and attendance logs.
-3. **Foreign Key Integrity**:
+   - A member can hold active memberships at Gym A and Gym B simultaneously with completely isolated records, payment terms, and attendance logs.
+5. **Foreign Key Integrity**:
    - `User.gymId` links directly to `Gym.id` (`onDelete: SetNull`).
    - `Attendance.gymId` links directly to `Gym.id`, preserving historical analytics even if member accounts change.
 

@@ -48,7 +48,11 @@ export class MembersService {
             }
 
             const cleanGymCode = gym.code.toLowerCase().replace(/[^a-z0-9]/g, "");
-            const scopedEmail = `${cleanGymCode}_${rawEmail}`;
+            // Option 1: Plus-addressing (name+gymCode@domain)
+            // Example: ajay@gmail.com at GYMB-2002 -> ajay+gymb2002@gmail.com
+            // Enables Firebase Auth to deliver password reset emails directly to the member's real inbox!
+            const [namePart, domainPart] = rawEmail.split("@");
+            const scopedEmail = domainPart ? `${namePart}+${cleanGymCode}@${domainPart}` : `${namePart}_${cleanGymCode}`;
 
             // Check if member already exists in THIS gym
             const existingMemberInGym = await prisma.user.findFirst({
@@ -56,6 +60,7 @@ export class MembersService {
                     gymId: gym.id,
                     OR: [
                         { email: scopedEmail },
+                        { email: `${cleanGymCode}_${rawEmail}` },
                         { email: rawEmail },
                         { rawEmail: rawEmail },
                     ],
@@ -303,6 +308,7 @@ export class MembersService {
                 where.OR = [
                     { name: { contains: query.search, mode: "insensitive" } },
                     { email: { contains: query.search, mode: "insensitive" } },
+                    { rawEmail: { contains: query.search, mode: "insensitive" } },
                     { phone: { contains: query.search, mode: "insensitive" } },
                     {
                         profile: {

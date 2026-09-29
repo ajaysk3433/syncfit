@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
+  sendPasswordResetEmail,
   onAuthStateChanged,
 } from "firebase/auth";
 import { auth } from "../config/firebase";
@@ -152,6 +153,11 @@ export const AuthProvider = ({ children }) => {
     setUserProfile(null);
   };
 
+  // Send password reset email directly via Firebase Auth
+  const sendPasswordReset = async (email) => {
+    return await sendPasswordResetEmail(auth, email.trim());
+  };
+
   const activeRole = userProfile?.role || (currentUser ? "AUTHENTICATED" : "GUEST");
   const activeUserEmail = currentUser?.email || null;
   const activeUserName = userProfile?.name || currentUser?.displayName || currentUser?.email?.split("@")[0];
@@ -172,6 +178,7 @@ export const AuthProvider = ({ children }) => {
         signIn,
         signUp,
         signOut,
+        sendPasswordReset,
         refreshProfile: () => currentUser && fetchDbProfile(currentUser),
         isAuthenticated: !!currentUser,
       }}

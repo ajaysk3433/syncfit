@@ -10,12 +10,13 @@ import {
   Platform,
   ScrollView,
   StatusBar,
+  Modal,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginScreen() {
-  const { signIn, isLoading, activeGymId, activeGym } = useAuth();
+  const { signIn, isLoading, activeGymId, activeGym, sendPasswordReset } = useAuth();
   const [gymId, setGymId] = useState(activeGymId || 'SYNCLINK-MAIN');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,6 +25,68 @@ export default function LoginScreen() {
   const [verifiedGymName, setVerifiedGymName] = useState<string | null>(
     activeGym?.name || 'SyncFit Flagship Gym'
   );
+
+  // Option 1 Password Reset State
+  const [resetModalVisible, setResetModalVisible] = useState(false);
+  const [resetGymId, setResetGymId] = useState(activeGymId || 'SYNCLINK-MAIN');
+  const [resetEmail, setResetEmail] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetStatus, setResetStatus] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  const handleOpenResetModal = () => {
+    setResetGymId(gymId || activeGymId || 'SYNCLINK-MAIN');
+    setResetEmail(email.trim());
+    setResetStatus(null);
+    setResetModalVisible(true);
+  };
+
+  const handleSendResetEmail = async () => {
+    const cleanGId = resetGymId.trim().toUpperCase();
+    const cleanMail = resetEmail.trim().toLowerCase();
+
+    if (!cleanGId) {
+      setResetStatus({
+        type: 'error',
+        message: 'Please enter your alphanumeric Gym Facility ID (e.g. SPAR-4531).',
+      });
+      return;
+    }
+    if (!cleanMail || !cleanMail.includes('@')) {
+      setResetStatus({
+        type: 'error',
+        message: 'Please enter a valid member email address.',
+      });
+      return;
+    }
+
+    setIsResetting(true);
+    setResetStatus(null);
+    try {
+      await sendPasswordReset(cleanGId, cleanMail);
+      setResetStatus({
+        type: 'success',
+        message: `Password reset link sent! Firebase has dispatched a secure reset link to ${cleanMail}. Check your inbox (including promotions/spam) to set a new password, then sign in below.`,
+      });
+    } catch (err: any) {
+      console.warn('Password reset error:', err);
+      let msg = 'Failed to send password reset email. Please verify your Gym ID and email.';
+      if (err.code === 'auth/user-not-found') {
+        msg = `No member account found for "${cleanMail}" registered at gym "${cleanGId}".`;
+      } else if (err.code === 'auth/invalid-email') {
+        msg = 'Invalid email address format.';
+      } else if (err.code === 'auth/too-many-requests') {
+        msg = 'Too many requests. Please wait a moment before requesting another reset email.';
+      } else if (err.message) {
+        msg = err.message;
+      }
+      setResetStatus({ type: 'error', message: msg });
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   // Sync with context if activeGymId updates
   React.useEffect(() => {
@@ -208,6 +271,17 @@ export default function LoginScreen() {
             </View>
           </View>
 
+          {/* Forgot Password Trigger */}
+          <View style={styles.forgotPasswordRow}>
+            <TouchableOpacity
+              onPress={handleOpenResetModal}
+              disabled={isLoading}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.forgotPasswordLink}>Forgot Password?</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Submit Button */}
           <TouchableOpacity
             style={[styles.loginButton, isLoading && styles.buttonDisabled]}
@@ -247,6 +321,162 @@ export default function LoginScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Option 1 Password Reset Modal */}
+      <Modal
+        visible={resetModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setResetModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIconCircle}>
+                <Ionicons name="key-outline" size={22} color="#00f2fe" />
+              </View>
+              <View style={styles.modalHeaderTextContainer}>
+                <Text style={styles.modalTitle}>Reset Gym Password</Text>
+                <Text style={styles.modalSubtitle}>
+                  Firebase will send a reset link to your email inbox
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setResetModalVisible(false)}
+                style={styles.modalCloseButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={22} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+
+            {/* How it works info banner */}
+            <View style={styles.resetInfoBox}>
+              <Ionicons name="information-circle-outline" size={18} color="#38bdf8" />
+              <Text style={styles.resetInfoText}>
+                Because your account uses multi-tenant routing, enter the Gym ID of the facility you are accessing. The reset link will arrive in your real inbox.
+              </Text>
+            </View>
+
+            {/* Status Feedback Banner */}
+            {resetStatus && (
+              <View
+                style={[
+                  styles.statusBanner,
+                  resetStatus.type === 'success'
+                    ? styles.statusBannerSuccess
+                    : styles.statusBannerError,
+                ]}
+              >
+                <Ionicons
+                  name={
+                    resetStatus.type === 'success'
+                      ? 'checkmark-circle'
+                      : 'alert-circle'
+                  }
+                  size={18}
+                  color={resetStatus.type === 'success' ? '#22c55e' : '#ff4d4f'}
+                />
+                <Text
+                  style={[
+                    styles.statusBannerText,
+                    resetStatus.type === 'success'
+                      ? styles.statusSuccessText
+                      : styles.statusErrorText,
+                  ]}
+                >
+                  {resetStatus.message}
+                </Text>
+              </View>
+            )}
+
+            {/* Gym ID Field */}
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>Gym Facility ID</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons
+                  name="business-outline"
+                  size={18}
+                  color="#00f2fe"
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={[styles.input, styles.gymIdInput]}
+                  placeholder="e.g. SPAR-4531"
+                  placeholderTextColor="#475569"
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  value={resetGymId}
+                  onChangeText={(t) =>
+                    setResetGymId(t.toUpperCase().replace(/[^A-Z0-9-]/g, ''))
+                  }
+                  editable={!isResetting}
+                />
+              </View>
+            </View>
+
+            {/* Email Field */}
+            <View style={styles.inputWrapper}>
+              <Text style={styles.inputLabel}>Registered Email</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons
+                  name="mail-outline"
+                  size={18}
+                  color="#64748b"
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="name@example.com"
+                  placeholderTextColor="#475569"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  value={resetEmail}
+                  onChangeText={setResetEmail}
+                  editable={!isResetting}
+                />
+              </View>
+            </View>
+
+            {/* Action Buttons */}
+            <TouchableOpacity
+              style={[
+                styles.resetSubmitButton,
+                isResetting && styles.buttonDisabled,
+              ]}
+              onPress={handleSendResetEmail}
+              disabled={isResetting}
+              activeOpacity={0.8}
+            >
+              {isResetting ? (
+                <ActivityIndicator color="#0f172a" size="small" />
+              ) : (
+                <View style={styles.buttonContent}>
+                  <Ionicons name="paper-plane-outline" size={16} color="#0f172a" />
+                  <Text style={styles.resetSubmitButtonText}>
+                    Send Reset Link
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => setResetModalVisible(false)}
+              disabled={isResetting}
+            >
+              <Text style={styles.modalCancelText}>
+                {resetStatus?.type === 'success' ? 'Back to Sign In' : 'Cancel'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -467,5 +697,143 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontSize: 12,
     lineHeight: 17,
+  },
+  forgotPasswordRow: {
+    alignItems: 'flex-end',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  forgotPasswordLink: {
+    color: '#38bdf8',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.78)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#0f172a',
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 242, 254, 0.25)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 242, 254, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 242, 254, 0.3)',
+  },
+  modalHeaderTextContainer: {
+    flex: 1,
+  },
+  modalTitle: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  modalSubtitle: {
+    color: '#94a3b8',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  modalCloseButton: {
+    padding: 6,
+  },
+  resetInfoBox: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.2)',
+    gap: 10,
+    alignItems: 'flex-start',
+  },
+  resetInfoText: {
+    flex: 1,
+    color: '#94a3b8',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  statusBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    gap: 10,
+  },
+  statusBannerSuccess: {
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    borderColor: 'rgba(34, 197, 94, 0.3)',
+  },
+  statusBannerError: {
+    backgroundColor: 'rgba(255, 77, 79, 0.12)',
+    borderColor: 'rgba(255, 77, 79, 0.3)',
+  },
+  statusBannerText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  statusSuccessText: {
+    color: '#4ade80',
+    fontWeight: '500',
+  },
+  statusErrorText: {
+    color: '#ff7875',
+    fontWeight: '500',
+  },
+  resetSubmitButton: {
+    backgroundColor: '#00f2fe',
+    borderRadius: 14,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+    shadowColor: '#00f2fe',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  resetSubmitButtonText: {
+    color: '#0b0f19',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  modalCancelButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  modalCancelText: {
+    color: '#64748b',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

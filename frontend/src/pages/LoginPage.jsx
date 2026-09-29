@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 export const LoginPage = () => {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, sendPasswordReset } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
 
@@ -40,6 +40,19 @@ export const LoginPage = () => {
   // Success Modal for newly provisioned Alphanumeric Gym ID
   const [createdGymModal, setCreatedGymModal] = useState(null);
   const [copiedGymId, setCopiedGymId] = useState(false);
+
+  const handleForgotPassword = async () => {
+    if (!email.trim() || !email.includes("@")) {
+      toast.error("Please enter your registered work email address first.");
+      return;
+    }
+    try {
+      await sendPasswordReset(email.trim());
+      toast.success(`Password reset email sent to ${email.trim()}! Please check your inbox.`);
+    } catch (err) {
+      toast.error(err?.message || "Failed to send password reset email.");
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -288,7 +301,26 @@ export const LoginPage = () => {
 
           {/* Password */}
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Password *</label>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+              <label className="form-label" style={{ marginBottom: 0 }}>Password *</label>
+              {mode === "SIGN_IN" && (
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--accent-cyan)",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
+                >
+                  Forgot password?
+                </button>
+              )}
+            </div>
             <div className="search-bar-wrapper">
               <Lock size={16} className="search-bar-icon" />
               <input

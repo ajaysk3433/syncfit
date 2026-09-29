@@ -101,9 +101,9 @@ graph LR
     OwnerSignUp["Owner Sign Up<br/>(gymName, email, password)"] --> ProvisionGym["AuthService.signUp<br/>1. Create Firebase Auth<br/>2. Create User (Role: ADMIN)<br/>3. Provision Gym (e.g. SPAR-4531)<br/>4. Link User.gymId = Gym.id"]
     ProvisionGym --> ShareGymId["Owner shares Gym ID<br/>with members"]
     ShareGymId --> MemberSignUp["Staff onboards Member<br/>at SPAR-4531 with<br/>member@gmail.com"]
-    MemberSignUp --> ScopedAuth["Member Created with:<br/>email: spar4531_member@gmail.com<br/>rawEmail: member@gmail.com<br/>gymId: Gym.id"]
-    ScopedAuth --> MobileLogin["Mobile Login:<br/>Gym ID: SPAR-4531<br/>Email: member@gmail.com<br/>Password: ******"]
-    MobileLogin --> AuthSuccess["Instant Multi-Tenant<br/>Authentication"]
+    MemberSignUp --> ScopedAuth["Member Created with Option 1:<br/>email: member+spar4531@gmail.com<br/>rawEmail: member@gmail.com<br/>gymId: Gym.id"]
+    ScopedAuth --> MobileLogin["Mobile Login & Reset:<br/>Gym ID: SPAR-4531<br/>Email: member@gmail.com<br/>Password: ******"]
+    MobileLogin --> AuthSuccess["Native Firebase Auth<br/>& Direct Reset Delivery"]
 ```
 
 ---
