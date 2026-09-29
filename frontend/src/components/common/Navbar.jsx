@@ -84,24 +84,15 @@ export const Navbar = ({ onOpenCheckIn }) => {
         </div>
 
         <div className="nav-actions-group">
-          {/* Quick Check-In Station Button */}
-          {/* <button
-            className="btn btn-emerald btn-sm"
-            onClick={onOpenCheckIn}
-            id="quick-check-in-btn"
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => navigate("/gym-qr")}
+            title="Generate & Print Facility QR Code"
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}
           >
-            <QrCode size={15} />
-            <span>Fast Check-In</span>
-          </button> */}
-
-          {/* Settings / API Config Modal Toggle */}
-          {/* <button
-            className="btn-icon"
-            onClick={() => setIsConfigOpen(true)}
-            title="Backend Configuration"
-          >
-            <Settings size={17} />
-          </button> */}
+            <QrCode size={15} style={{ color: "var(--accent-cyan)" }} />
+            <span>Facility QR Pass</span>
+          </button>
 
           {/* User Profile & Role Info */}
           <div style={{ display: "flex", alignItems: "center", gap: "12px", paddingLeft: "12px", borderLeft: "1px solid var(--border-subtle)" }}>

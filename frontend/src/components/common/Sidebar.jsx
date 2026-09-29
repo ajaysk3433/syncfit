@@ -9,11 +9,13 @@ import {
   FileCode2,
   Dumbbell,
   Sparkles,
+  QrCode,
 } from "lucide-react";
 
 export const Sidebar = () => {
   const navItems = [
     { to: "/", label: "Live Floor & Desk", icon: <LayoutDashboard size={19} /> },
+    { to: "/gym-qr", label: "Facility QR Pass", icon: <QrCode size={19} /> },
     { to: "/members", label: "Members Directory", icon: <Users size={19} /> },
     { to: "/plans", label: "Plans & Packages", icon: <CreditCard size={19} /> },
     { to: "/attendance", label: "Attendance Logs", icon: <ClipboardList size={19} /> },

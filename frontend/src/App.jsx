@@ -16,10 +16,12 @@ import { AttendancePage } from "./pages/AttendancePage";
 import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { SwaggerPage } from "./pages/SwaggerPage";
 import { LoginPage } from "./pages/LoginPage";
+import { GymQrPage } from "./pages/GymQrPage";
 
 import "./styles/index.css";
 import "./styles/components.css";
 import "./styles/animations.css";
+import "./styles/qr-print.css";
 
 // Protected Route Guard - Strictly requires authenticated Firebase user
 function ProtectedRoute({ children }) {
@@ -78,6 +80,7 @@ function AppLayout() {
         <main className="page-body">
           <Routes>
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/gym-qr" element={<GymQrPage />} />
             <Route path="/members" element={<MembersPage />} />
             <Route path="/plans" element={<PlansPage />} />
             <Route path="/attendance" element={<AttendancePage />} />

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { attendanceApi } from "../api/attendanceApi";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -13,10 +14,12 @@ import {
   TrendingUp,
   QrCode,
   RefreshCw,
+  Printer,
 } from "lucide-react";
 
 export const DashboardPage = () => {
   const toast = useToast();
+  const navigate = useNavigate();
   const { backendHealth } = useAuth();
   const [occupancy, setOccupancy] = useState(null);
   const [overviewStats, setOverviewStats] = useState(null);
@@ -111,6 +114,14 @@ export const DashboardPage = () => {
           >
             <RefreshCw size={14} className={loading ? "spinner" : ""} />
             <span>Refresh</span>
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => navigate("/gym-qr")}
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}
+          >
+            <Printer size={15} style={{ color: "var(--accent-cyan)" }} />
+            <span>Facility QR Pass</span>
           </button>
           <button
             className="btn btn-emerald"
