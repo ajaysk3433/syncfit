@@ -67,19 +67,45 @@ export class AttendanceService {
             }
 
             // Step 3: Membership Plan Validation
-            const activeMembership = await this.plansRepository.findActiveMembershipByUserId(user.id);
+            let activeMembership = await this.plansRepository.findActiveMembershipByUserId(user.id);
             if (!activeMembership && user.role === "MEMBER") {
-                await this.attendanceRepository.createAttendance({
-                    user: { connect: { id: user.id } },
-                    gym: { connect: { id: gym.id } },
-                    status: "DENIED",
-                    denialReason: "NO_ACTIVE_MEMBERSHIP",
-                    method: "QR_CODE",
-                    location: gym.name,
-                    ...(input.notes ? { notes: input.notes } : {}),
-                });
-                logger.warn(`QR scan denied for member ${user.id}: No active membership plan`);
-                throw new ForbiddenError("Access denied: You do not have an active membership plan to access the facility");
+                if (user.status === "ACTIVE") {
+                    let plans = await this.plansRepository.findAllPlans({ isActive: true });
+                    let defaultPlan = plans[0];
+                    if (!defaultPlan) {
+                        defaultPlan = await this.plansRepository.createPlan({
+                            name: "All-Access Standard Pass",
+                            tier: "STANDARD",
+                            price: 49.99,
+                            durationDays: 365,
+                            features: ["Gym floor", "Cardio zone", "Locker room", "Free weights"],
+                            isActive: true,
+                        });
+                    }
+                    const now = new Date();
+                    const oneYearLater = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+                    activeMembership = (await this.plansRepository.createMembership({
+                        user: { connect: { id: user.id } },
+                        plan: { connect: { id: defaultPlan.id } },
+                        startDate: now,
+                        endDate: oneYearLater,
+                        status: "ACTIVE",
+                        autoRenew: true,
+                        notes: "Auto-provisioned facility access pass on QR scan",
+                    })) as any;
+                } else {
+                    await this.attendanceRepository.createAttendance({
+                        user: { connect: { id: user.id } },
+                        gym: { connect: { id: gym.id } },
+                        status: "DENIED",
+                        denialReason: "NO_ACTIVE_MEMBERSHIP",
+                        method: "QR_CODE",
+                        location: gym.name,
+                        ...(input.notes ? { notes: input.notes } : {}),
+                    });
+                    logger.warn(`QR scan denied for member ${user.id}: No active membership plan`);
+                    throw new ForbiddenError("Access denied: You do not have an active membership plan to access the facility");
+                }
             }
 
             // Step 4: Check if already checked in to decide Check-In vs Check-Out

@@ -13,7 +13,7 @@ import { swaggerDocument } from "./core/docs/swagger.js";
 import "./core/configs/firebase.js";
 import { errorHandler } from './core/error/error-handler.js';
 import { prisma } from './core/configs/prisma.js';
-import { bootstrapAdminUser, bootstrapDefaultGym } from './core/configs/bootstrap.js';
+import { bootstrapAdminUser, bootstrapDefaultGym, bootstrapDefaultPlan } from './core/configs/bootstrap.js';
 
 const PORT: number = parseInt(process.env.PORT || '8080');
 export const app: Express = express();
@@ -55,9 +55,10 @@ const server = app.listen(PORT, async () => {
     logger.info(`Listening for requests on http://localhost:${PORT}`);
     logger.info(`Swagger UI documentation available at http://localhost:${PORT}/docs`);
 
-    // Bootstrap default admin user and gym on startup
+    // Bootstrap default admin user, gym, and membership plan on startup
     await bootstrapAdminUser();
     await bootstrapDefaultGym();
+    await bootstrapDefaultPlan();
 });
 
 const gracefulShutdown = async (signal: string) => {

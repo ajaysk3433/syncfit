@@ -117,3 +117,32 @@ export async function bootstrapDefaultGym(): Promise<void> {
         logger.error(`Failed to bootstrap default gym: ${error.message}`, { error });
     }
 }
+
+/**
+ * Ensures a default Membership plan exists in the database.
+ */
+export async function bootstrapDefaultPlan(): Promise<void> {
+    try {
+        const existingPlan = await prisma.membershipPlan.findFirst({
+            where: { isActive: true },
+        });
+
+        if (!existingPlan) {
+            const defaultPlan = await prisma.membershipPlan.create({
+                data: {
+                    name: "All-Access Standard Pass",
+                    tier: "STANDARD",
+                    description: "Full access to gym facilities, equipment, and classes",
+                    price: 49.99,
+                    durationDays: 365,
+                    features: ["Gym floor", "Cardio zone", "Locker room", "Free weights"],
+                    isActive: true,
+                },
+            });
+            logger.info(`Bootstrapped default membership plan: ${defaultPlan.name} (${defaultPlan.id})`);
+        }
+    } catch (error: any) {
+        logger.error(`Failed to bootstrap default membership plan: ${error.message}`, { error });
+    }
+}
+

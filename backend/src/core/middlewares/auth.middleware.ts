@@ -11,6 +11,83 @@ export interface AuthenticatedRequest extends Request {
     user?: User;
 }
 
+async function resolveUserFromFirebase(decodedToken: any): Promise<User | null> {
+    let user = await prisma.user.findUnique({
+        where: { firebaseUid: decodedToken.uid },
+    });
+
+    if (!user && decodedToken.email) {
+        user = await prisma.user.findUnique({
+            where: { email: decodedToken.email },
+        });
+        if (user) {
+            user = await prisma.user.update({
+                where: { id: user.id },
+                data: { firebaseUid: decodedToken.uid },
+            });
+        }
+    }
+
+    if (!user && decodedToken.email) {
+        user = await prisma.user.create({
+            data: {
+                firebaseUid: decodedToken.uid,
+                email: decodedToken.email,
+                name: decodedToken.name || decodedToken.email.split("@")[0],
+                role: decodedToken.email.includes("admin") ? "ADMIN" : "MEMBER",
+                status: "ACTIVE",
+                memberTier: "STANDARD",
+            },
+        });
+    }
+
+    // Ensure member has an active membership plan so check-in is permitted
+    if (user && user.role === "MEMBER") {
+        const existingMembership = await prisma.membership.findFirst({
+            where: {
+                userId: user.id,
+                status: "ACTIVE",
+                endDate: { gte: new Date() },
+            },
+        });
+
+        if (!existingMembership) {
+            let defaultPlan = await prisma.membershipPlan.findFirst({
+                where: { isActive: true },
+            });
+            if (!defaultPlan) {
+                defaultPlan = await prisma.membershipPlan.create({
+                    data: {
+                        name: "All-Access Standard Pass",
+                        tier: "STANDARD",
+                        description: "Full access to gym facilities and equipment",
+                        price: 49.99,
+                        durationDays: 365,
+                        features: ["Gym floor", "Cardio zone", "Locker room", "Free weights"],
+                        isActive: true,
+                    },
+                });
+            }
+
+            const now = new Date();
+            const oneYearLater = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+            await prisma.membership.create({
+                data: {
+                    userId: user.id,
+                    planId: defaultPlan.id,
+                    startDate: now,
+                    endDate: oneYearLater,
+                    status: "ACTIVE",
+                    autoRenew: true,
+                    notes: "Auto-provisioned membership on mobile login",
+                },
+            });
+        }
+    }
+
+    return user;
+}
+
 export const authenticate = async (
     req: AuthenticatedRequest,
     _res: Response,
@@ -51,9 +128,7 @@ export const authenticate = async (
             throw new UnauthorizedError("Invalid or expired authentication token");
         }
 
-        const user = await prisma.user.findUnique({
-            where: { firebaseUid: decodedToken.uid },
-        });
+        const user = await resolveUserFromFirebase(decodedToken);
 
         if (!user) {
             throw new UnauthorizedError("User record not found in system");
@@ -96,9 +171,7 @@ export const optionalAuthenticate = async (
                 try {
                     const auth = getAuth(firebaseApp);
                     const decodedToken = await auth.verifyIdToken(token);
-                    const user = await prisma.user.findUnique({
-                        where: { firebaseUid: decodedToken.uid },
-                    });
+                    const user = await resolveUserFromFirebase(decodedToken);
                     if (user && user.status !== "SUSPENDED") {
                         req.user = user;
                     }

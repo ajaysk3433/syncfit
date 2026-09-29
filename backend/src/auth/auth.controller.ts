@@ -31,6 +31,32 @@ class AuthController {
             next(error);
         }
     };
+
+    getMe = async (req: any, res: Response, next: NextFunction) => {
+        try {
+            if (!req.user) {
+                return res.status(401).json({
+                    success: false,
+                    message: "User not authenticated",
+                });
+            }
+
+            const user = req.user;
+            const activeAttendance = await (await import("../attendance/attendance.repository.js")).default.findActiveAttendanceByUserId(user.id);
+            const activeMembership = await (await import("../membership-plans/plans.repository.js")).default.findActiveMembershipByUserId(user.id);
+
+            return res.status(200).json({
+                success: true,
+                data: {
+                    user,
+                    activeAttendance,
+                    activeMembership,
+                },
+            });
+        } catch (error) {
+            next(error);
+        }
+    };
 }
 
 export default new AuthController(authService);
