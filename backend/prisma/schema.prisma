@@ -85,12 +85,15 @@ model User {
   id          String      @id @default(uuid())
   firebaseUid String      @unique
   email       String      @unique
+  rawEmail    String?
   name        String?
   phone       String?
   role        Role        @default(MEMBER)
   status      UserStatus  @default(ACTIVE)
   memberTier  MemberTier? @default(STANDARD)
   avatarUrl   String?
+  gymId       String?
+  gym         Gym?        @relation(fields: [gymId], references: [id], onDelete: SetNull)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -225,6 +228,7 @@ model Gym {
   updatedAt       DateTime      @updatedAt
 
   attendances     Attendance[]
+  users           User[]
 
   @@map("gyms")
 }

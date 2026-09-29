@@ -1,7 +1,9 @@
 import type { App } from "firebase-admin";
 import { getAuth } from "firebase-admin/auth";
+import crypto from "node:crypto";
 import type { Role, MemberTier, User } from "@prisma/client";
 import { firebaseApp } from "../core/configs/firebase.js";
+import prisma from "../core/configs/prisma.js";
 import authRepository, { AuthRepository } from "./auth.repository.js";
 import { withSpan } from "../core/telemetry/tracer.js";
 import { logger } from "../core/logs/logs.js";
@@ -18,11 +20,15 @@ export interface SignUpInput {
     role?: Role;
     memberTier?: MemberTier;
     avatarUrl?: string;
+    gymName?: string;
+    gymAddress?: string;
+    gymCity?: string;
 }
 
 export interface SignUpResult {
     user: User;
     firebaseUid: string;
+    gym?: any;
 }
 
 export class AuthService {
@@ -63,12 +69,15 @@ export class AuthService {
 
             // Step 2: Store user in Postgres via Prisma
             try {
+                const effectiveRole = userData.role || (userData.gymName ? "ADMIN" : "MEMBER");
+
                 const user = await this.authRepository.createUser({
                     firebaseUid: firebaseUser.uid,
                     email: userData.email,
+                    rawEmail: userData.email,
                     ...(userData.name ? { name: userData.name } : {}),
                     ...(userData.phone ? { phone: userData.phone } : {}),
-                    ...(userData.role ? { role: userData.role } : {}),
+                    role: effectiveRole,
                     ...(userData.memberTier ? { memberTier: userData.memberTier } : {}),
                     ...(userData.avatarUrl ? { avatarUrl: userData.avatarUrl } : {}),
                 });
@@ -76,9 +85,45 @@ export class AuthService {
                 logger.info(
                     `User successfully registered and saved to DB: ${user.id} (${user.email})`
                 );
+
+                // Step 3: If registering as Gym Owner / ADMIN or gymName specified, create Gym facility with unique alphanumeric Gym ID
+                let createdGym = null;
+                if (effectiveRole === "ADMIN" || effectiveRole === "MANAGER" || userData.gymName) {
+                    const rawName = userData.gymName || (userData.name ? `${userData.name}'s Gym` : "SyncFit Club");
+                    const prefix = rawName.replace(/[^A-Za-z]/g, "").slice(0, 4).toUpperCase() || "GYM";
+                    const randomSuffix = crypto.randomBytes(2).toString("hex").toUpperCase();
+                    const gymCode = `${prefix}-${randomSuffix}`;
+                    const qrCodeKey = `gym_qr_${crypto.randomUUID()}`;
+
+                    createdGym = await prisma.gym.create({
+                        data: {
+                            name: rawName,
+                            code: gymCode,
+                            address: userData.gymAddress || null,
+                            city: userData.gymCity || null,
+                            qrCodeKey,
+                            isActive: true,
+                            maxCapacity: 150,
+                        },
+                    });
+
+                    // Associate user with provisioned gym
+                    await prisma.user.update({
+                        where: { id: user.id },
+                        data: { gymId: createdGym.id },
+                    });
+
+                    logger.info(`Provisioned new gym facility ${createdGym.name} with Alphanumeric Gym ID: ${createdGym.code}`);
+                }
+
                 return {
-                    user,
+                    user: {
+                        ...user,
+                        gymId: createdGym ? createdGym.id : null,
+                        gym: createdGym,
+                    },
                     firebaseUid: firebaseUser.uid,
+                    ...(createdGym ? { gym: createdGym } : {}),
                 };
             } catch (dbError: any) {
                 logger.error(

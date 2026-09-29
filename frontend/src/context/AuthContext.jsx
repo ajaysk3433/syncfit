@@ -14,6 +14,7 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
+  const [activeGym, setActiveGym] = useState(null);
   const [loading, setLoading] = useState(true);
   const [backendHealth, setBackendHealth] = useState({
     status: "UNKNOWN",
@@ -21,15 +22,33 @@ export const AuthProvider = ({ children }) => {
     checkedAt: null,
   });
 
-  // Fetch PostgreSQL user profile from backend once authenticated via Firebase
+  // Fetch PostgreSQL user profile and active gym from backend once authenticated via Firebase
   const fetchDbProfile = useCallback(async (firebaseUser) => {
     if (!firebaseUser?.email) {
       setUserProfile(null);
+      setActiveGym(null);
       return;
     }
     try {
+      const meRes = await authApi.getMe();
+      if (meRes?.data?.user) {
+        setUserProfile(meRes.data.user);
+        if (meRes.data.gym) {
+          setActiveGym(meRes.data.gym);
+        }
+        return;
+      }
+    } catch {
+      // Fallback to members search or local default
+    }
+
+    try {
       const res = await membersApi.listMembers({ search: firebaseUser.email, limit: 1 });
-      const found = res?.members?.find((m) => m.email.toLowerCase() === firebaseUser.email.toLowerCase());
+      const found = res?.members?.find(
+        (m) =>
+          m.email?.toLowerCase() === firebaseUser.email.toLowerCase() ||
+          m.rawEmail?.toLowerCase() === firebaseUser.email.toLowerCase()
+      );
       if (found) {
         setUserProfile(found);
       } else {
@@ -142,6 +161,8 @@ export const AuthProvider = ({ children }) => {
       value={{
         currentUser,
         userProfile,
+        activeGym,
+        gymCode: activeGym?.code || userProfile?.gymCode || null,
         loading,
         activeRole,
         activeUserEmail,
@@ -151,6 +172,7 @@ export const AuthProvider = ({ children }) => {
         signIn,
         signUp,
         signOut,
+        refreshProfile: () => currentUser && fetchDbProfile(currentUser),
         isAuthenticated: !!currentUser,
       }}
     >

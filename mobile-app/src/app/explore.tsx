@@ -20,7 +20,7 @@ import api, {
 } from '@/services/api';
 
 export default function ExploreScreen() {
-  const { userProfile, signOut, refreshProfile } = useAuth();
+  const { userProfile, activeGym, signOut, refreshProfile } = useAuth();
   const [history, setHistory] = useState<AttendanceRecord[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -232,6 +232,18 @@ export default function ExploreScreen() {
                     </Text>
                   </View>
                 </View>
+
+                {activeGym && (
+                  <View style={styles.gymInfoBanner}>
+                    <Ionicons name="business" size={13} color="#00f2fe" />
+                    <Text style={styles.gymNameText} numberOfLines={1}>
+                      {activeGym.name}
+                    </Text>
+                    <View style={styles.gymCodeBadge}>
+                      <Text style={styles.gymCodeBadgeText}>{activeGym.code}</Text>
+                    </View>
+                  </View>
+                )}
               </View>
             </View>
 
@@ -410,6 +422,36 @@ const styles = StyleSheet.create({
     color: '#10b981',
     fontSize: 10,
     fontWeight: '700',
+  },
+  gymInfoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 242, 254, 0.08)',
+    borderRadius: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    marginTop: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 242, 254, 0.2)',
+  },
+  gymNameText: {
+    color: '#e2e8f0',
+    fontSize: 11,
+    fontWeight: '600',
+    flex: 1,
+  },
+  gymCodeBadge: {
+    backgroundColor: 'rgba(0, 242, 254, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  gymCodeBadgeText: {
+    color: '#00f2fe',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   serverSettingsCard: {
     backgroundColor: '#131b2e',

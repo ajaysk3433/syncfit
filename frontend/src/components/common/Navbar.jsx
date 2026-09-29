@@ -10,6 +10,9 @@ import {
   QrCode,
   RefreshCw,
   User,
+  Building,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Modal } from "./Modal";
 import { RoleBadge } from "./Badge";
@@ -19,6 +22,8 @@ export const Navbar = ({ onOpenCheckIn }) => {
     activeRole,
     activeUserEmail,
     activeUserName,
+    activeGym,
+    gymCode,
     backendHealth,
     checkBackendHealth,
     signOut,
@@ -26,9 +31,19 @@ export const Navbar = ({ onOpenCheckIn }) => {
   const toast = useToast();
   const navigate = useNavigate();
 
+  const [copiedGymId, setCopiedGymId] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [apiUrlInput, setApiUrlInput] = useState(getApiBaseUrl());
   const [testingHealth, setTestingHealth] = useState(false);
+
+  const handleCopyGymId = () => {
+    const code = gymCode || activeGym?.code;
+    if (!code) return;
+    navigator.clipboard.writeText(code);
+    setCopiedGymId(true);
+    toast.success(`Gym ID ${code} copied! Share with your members for mobile login.`);
+    setTimeout(() => setCopiedGymId(false), 2200);
+  };
 
   const handleSaveConfig = () => {
     setApiBaseUrl(apiUrlInput);
@@ -84,6 +99,27 @@ export const Navbar = ({ onOpenCheckIn }) => {
         </div>
 
         <div className="nav-actions-group">
+          {/* Alphanumeric Gym ID Pill with Quick Copy */}
+          {(gymCode || activeGym?.code) && (
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={handleCopyGymId}
+              title={`Unique Gym ID: ${gymCode || activeGym?.code}. Click to copy for members.`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                borderColor: copiedGymId ? "#10b981" : "rgba(6, 182, 212, 0.4)",
+                background: copiedGymId ? "rgba(16, 185, 129, 0.15)" : "rgba(6, 182, 212, 0.08)",
+                color: copiedGymId ? "#10b981" : "var(--text-primary)",
+              }}
+            >
+              <Building size={14} style={{ color: copiedGymId ? "#10b981" : "var(--accent-cyan)" }} />
+              <span>Gym ID: <strong style={{ color: "var(--accent-cyan)", fontFamily: "monospace" }}>{gymCode || activeGym?.code}</strong></span>
+              {copiedGymId ? <Check size={13} style={{ color: "#10b981" }} /> : <Copy size={13} />}
+            </button>
+          )}
+
           <button
             className="btn btn-secondary btn-sm"
             onClick={() => navigate("/gym-qr")}

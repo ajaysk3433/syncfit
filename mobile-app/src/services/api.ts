@@ -1,21 +1,59 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 import { auth } from '../config/firebase';
 
 const STORAGE_API_URL_KEY = 'syncfit_custom_api_url';
 
 /**
- * Determine default backend API base URL depending on platform.
+ * Determine default backend API base URL depending on runtime environment.
+ * In Expo Go, dynamically extracts the Metro host LAN IP (e.g. 192.168.1.5:8080).
+ * Physical devices on local WiFi connect via host IP or 192.168.1.5:8080.
  * Android Emulator uses 10.0.2.2 to access host machine's localhost.
- * Physical devices on local WiFi connect via 192.168.1.5:8080.
- * iOS Simulator and Web connect to localhost:8080.
  */
 export const getDefaultApiUrl = (): string => {
+  // 1. Check if Metro bundler host IP is exposed via Expo constants
+  const hostUri = Constants.expoConfig?.hostUri || (Constants as any)?.manifest?.debuggerHost;
+  if (hostUri) {
+    const hostIp = hostUri.split(':')[0];
+    if (hostIp && hostIp !== 'localhost' && hostIp !== '127.0.0.1') {
+      return `http://${hostIp}:8080`;
+    }
+  }
+
+  // 2. Physical device fallback to LAN IP
+  if (Device.isDevice) {
+    return 'http://192.168.1.5:8080';
+  }
+
+  // 3. Android emulator
   if (Platform.OS === 'android') {
-    // 10.0.2.2 is standard for Android Emulator; fallback to local LAN IP
     return 'http://10.0.2.2:8080';
   }
+
   return 'http://localhost:8080';
+};
+
+/**
+ * Fetch with safe timeout to prevent network operations from hanging indefinitely
+ */
+export const fetchWithTimeout = async (
+  url: string,
+  options: RequestInit = {},
+  timeoutMs: number = 4500
+): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 };
 
 let cachedApiUrl: string | null = null;
@@ -149,35 +187,35 @@ class ApiService {
 
     let response: Response;
     try {
-      response = await fetch(url, {
+      response = await fetchWithTimeout(url, {
         ...options,
         headers: {
           ...headers,
           ...(options.headers || {}),
         },
-      });
+      }, 5000);
     } catch (netErr: any) {
-      // In Android emulator or physical device, if 10.0.2.2 fails, try local LAN IP 192.168.1.5
-      if (baseUrl === 'http://10.0.2.2:8080') {
+      // In Android emulator or physical device, if connection fails, try local LAN IP 192.168.1.5
+      if (baseUrl !== 'http://192.168.1.5:8080') {
         try {
           const fallbackUrl = `http://192.168.1.5:8080${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-          response = await fetch(fallbackUrl, {
+          response = await fetchWithTimeout(fallbackUrl, {
             ...options,
             headers: {
               ...headers,
               ...(options.headers || {}),
             },
-          });
+          }, 4000);
           // Cache successful fallback
           await setApiBaseUrl('http://192.168.1.5:8080');
         } catch {
           throw new Error(
-            `Unable to connect to server at ${baseUrl}. Ensure backend is running.`
+            `Unable to connect to SyncFit server at ${baseUrl}. Ensure backend is running.`
           );
         }
       } else {
         throw new Error(
-          `Unable to connect to server at ${baseUrl}. Please check network connection.`
+          `Unable to connect to SyncFit server at ${baseUrl}. Please check network connection.`
         );
       }
     }
@@ -295,6 +333,30 @@ class ApiService {
     status: string;
   }> {
     return this.request<any>('/v1/attendance/occupancy');
+  }
+
+  /**
+   * Validate and lookup gym facility by alphanumeric Gym ID / Code
+   */
+  async lookupGym(code: string): Promise<{
+    id: string;
+    name: string;
+    code: string;
+    address?: string;
+    city?: string;
+    maxCapacity?: number;
+    displayLocation?: string;
+  }> {
+    const cleanCode = code.trim().toUpperCase();
+    return this.request<{
+      id: string;
+      name: string;
+      code: string;
+      address?: string;
+      city?: string;
+      maxCapacity?: number;
+      displayLocation?: string;
+    }>(`/v1/gym/lookup/${cleanCode}`);
   }
 }
 

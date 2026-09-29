@@ -14,6 +14,9 @@ export const signUpSchema = z.object({
         role: z.enum(["ADMIN", "MANAGER", "FRONT_DESK", "TRAINER", "MAINTENANCE", "MEMBER"]).optional(),
         memberTier: z.enum(["STANDARD", "PREMIUM", "VIP"]).optional(),
         avatarUrl: z.string().url("Invalid avatar URL format").optional().or(z.literal("")),
+        gymName: z.string().trim().optional(),
+        gymAddress: z.string().trim().optional(),
+        gymCity: z.string().trim().optional(),
     }),
 });
 

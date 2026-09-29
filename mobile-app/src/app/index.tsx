@@ -17,7 +17,7 @@ import QRScannerModal from '@/components/QRScannerModal';
 import ScanResultModal from '@/components/ScanResultModal';
 
 export default function HomeScreen() {
-  const { userProfile, activeAttendance, activeMembership, refreshProfile, signOut } =
+  const { userProfile, activeGym, activeAttendance, activeMembership, refreshProfile, signOut } =
     useAuth();
 
   const [scannerVisible, setScannerVisible] = useState(false);
@@ -116,9 +116,17 @@ export default function HomeScreen() {
             <Text style={styles.greetingText}>Hello, {memberName}</Text>
           </View>
 
-          <View style={styles.tierPill}>
-            <Ionicons name="shield-checkmark" size={13} color="#00f2fe" />
-            <Text style={styles.tierText}>{memberTier}</Text>
+          <View style={styles.headerBadges}>
+            {activeGym && (
+              <View style={styles.gymPill}>
+                <Ionicons name="business" size={12} color="#00f2fe" />
+                <Text style={styles.gymPillText}>{activeGym.code}</Text>
+              </View>
+            )}
+            <View style={styles.tierPill}>
+              <Ionicons name="shield-checkmark" size={13} color="#00f2fe" />
+              <Text style={styles.tierText}>{memberTier}</Text>
+            </View>
           </View>
         </View>
 
@@ -355,6 +363,28 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     marginTop: 2,
+  },
+  headerBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  gymPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 242, 254, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 242, 254, 0.25)',
+    borderRadius: 20,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    gap: 5,
+  },
+  gymPillText: {
+    color: '#00f2fe',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
   },
   tierPill: {
     flexDirection: 'row',

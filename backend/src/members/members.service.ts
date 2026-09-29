@@ -32,10 +32,37 @@ export class MembersService {
 
     async createMember(input: CreateMemberInput): Promise<any> {
         return withSpan("MembersService.createMember", async () => {
-            // Check for existing email in DB
-            const existingUser = await this.membersRepository.findByEmail(input.email);
-            if (existingUser) {
-                throw new ConflictError("User with this email already exists");
+            const rawEmail = input.email.trim().toLowerCase();
+
+            // Resolve gym facility
+            const prisma = (await import("../core/configs/prisma.js")).default;
+            let gym: any = null;
+            if (input.gymCode) {
+                gym = await prisma.gym.findUnique({ where: { code: input.gymCode.toUpperCase() } });
+            } else if (input.gymId) {
+                gym = await prisma.gym.findUnique({ where: { id: input.gymId } });
+            }
+            if (!gym) {
+                const gymService = (await import("../gym/gym.service.js")).default;
+                gym = await gymService.getOrCreateDefaultGym();
+            }
+
+            const cleanGymCode = gym.code.toLowerCase().replace(/[^a-z0-9]/g, "");
+            const scopedEmail = `${cleanGymCode}_${rawEmail}`;
+
+            // Check if member already exists in THIS gym
+            const existingMemberInGym = await prisma.user.findFirst({
+                where: {
+                    gymId: gym.id,
+                    OR: [
+                        { email: scopedEmail },
+                        { email: rawEmail },
+                        { rawEmail: rawEmail },
+                    ],
+                },
+            });
+            if (existingMemberInGym) {
+                throw new ConflictError(`Member with email ${rawEmail} is already registered at ${gym.name} (${gym.code})`);
             }
 
             // Check referral code if provided
@@ -52,32 +79,34 @@ export class MembersService {
 
             const auth = getAuth(this.firebaseApp);
 
-            // Step 1: Create user in Firebase Auth
+            // Step 1: Create user in Firebase Auth using scoped email
             let firebaseUser;
             try {
                 firebaseUser = await auth.createUser({
-                    email: input.email,
+                    email: scopedEmail,
                     password: input.password,
                     displayName: input.name,
                 });
             } catch (fbError: any) {
                 if (fbError.code === "auth/email-already-exists") {
-                    throw new ConflictError("Email already in use in Firebase Auth");
+                    throw new ConflictError(`Member account already exists in Firebase for ${gym.code}`);
                 }
                 throw new BadRequestError(fbError.message || "Failed to create user in Firebase Auth");
             }
 
-            // Step 2: Store in Postgres with Profile
+            // Step 2: Store in Postgres with Profile and Gym linkage
             try {
                 const referralCode = this.generateReferralCode();
                 const user = await this.membersRepository.createUserWithProfile(
                     {
                         firebaseUid: firebaseUser.uid,
-                        email: input.email,
+                        email: scopedEmail,
+                        rawEmail: rawEmail,
                         name: input.name,
                         role: (input.role as Role) || "MEMBER",
                         status: "ACTIVE",
                         memberTier: (input.memberTier as MemberTier) || "STANDARD",
+                        gym: { connect: { id: gym.id } },
                         ...(input.phone !== undefined ? { phone: input.phone } : {}),
                         ...(input.avatarUrl !== undefined ? { avatarUrl: input.avatarUrl } : {}),
                     },
@@ -98,7 +127,7 @@ export class MembersService {
                     }
                 );
 
-                logger.info(`Member created successfully: ${user.id} (${user.email})`);
+                logger.info(`Member created successfully in ${gym.name} (${gym.code}): ${user.id} (${rawEmail})`);
 
                 // Step 3: Optional initial membership assignment
                 let initialMembership = null;

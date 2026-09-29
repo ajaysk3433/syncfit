@@ -15,13 +15,37 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginScreen() {
-  const { signIn, isLoading } = useAuth();
+  const { signIn, isLoading, activeGymId, activeGym } = useAuth();
+  const [gymId, setGymId] = useState(activeGymId || 'SYNCLINK-MAIN');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [verifiedGymName, setVerifiedGymName] = useState<string | null>(
+    activeGym?.name || 'SyncFit Flagship Gym'
+  );
+
+  // Sync with context if activeGymId updates
+  React.useEffect(() => {
+    if (activeGymId) {
+      setGymId(activeGymId);
+    }
+    if (activeGym?.name) {
+      setVerifiedGymName(activeGym.name);
+    }
+  }, [activeGymId, activeGym]);
+
+  const handleGymIdChange = (text: string) => {
+    const formatted = text.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+    setGymId(formatted);
+    setErrorMessage(null);
+  };
 
   const handleLogin = async () => {
+    if (!gymId.trim()) {
+      setErrorMessage('Please enter your alphanumeric Gym ID (e.g. SYNCLINK-MAIN or SYNC-8F2B).');
+      return;
+    }
     if (!email.trim() || !password) {
       setErrorMessage('Please enter both email and password.');
       return;
@@ -29,14 +53,14 @@ export default function LoginScreen() {
 
     setErrorMessage(null);
     try {
-      await signIn(email.trim(), password);
+      await signIn(gymId.trim(), email.trim(), password);
     } catch (err: any) {
       console.warn('Sign-in error:', err);
-      let message = 'Failed to sign in. Please verify your credentials.';
+      let message = 'Failed to sign in. Please verify your credentials and Gym ID.';
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
-        message = 'Invalid email or password. Please try again.';
+        message = 'Invalid email or password for this gym. Please check your credentials.';
       } else if (err.code === 'auth/user-not-found') {
-        message = 'No active member account found with this email.';
+        message = `No active member account found for ${gymId.trim()} with this email.`;
       } else if (err.code === 'auth/invalid-email') {
         message = 'Invalid email address format.';
       } else if (err.code === 'auth/network-request-failed') {
@@ -49,9 +73,11 @@ export default function LoginScreen() {
   };
 
   const handleQuickFillAdmin = () => {
+    setGymId('SYNCLINK-MAIN');
     setEmail('admin@syncfit.com');
     setPassword('AdminPassword123!');
     setErrorMessage(null);
+    setVerifiedGymName('SyncFit Flagship Gym');
   };
 
   return (
@@ -77,9 +103,9 @@ export default function LoginScreen() {
 
         {/* Card */}
         <View style={styles.card}>
-          <Text style={styles.cardHeading}>Welcome Back</Text>
+          <Text style={styles.cardHeading}>Member Sign In</Text>
           <Text style={styles.cardSubheading}>
-            Sign in to access gym turnstiles and scan facility QR codes
+            Enter your Gym ID, email and password to access facility turnstiles
           </Text>
 
           {errorMessage && (
@@ -88,6 +114,42 @@ export default function LoginScreen() {
               <Text style={styles.errorText}>{errorMessage}</Text>
             </View>
           )}
+
+          {/* Gym ID Input */}
+          <View style={styles.inputWrapper}>
+            <View style={styles.labelRow}>
+              <Text style={styles.inputLabel}>Gym Facility ID</Text>
+              {verifiedGymName && (
+                <View style={styles.facilityBadge}>
+                  <Ionicons name="business" size={11} color="#00f2fe" />
+                  <Text style={styles.facilityBadgeText} numberOfLines={1}>
+                    {verifiedGymName}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.inputContainer}>
+              <Ionicons
+                name="business-outline"
+                size={20}
+                color="#00f2fe"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={[styles.input, styles.gymIdInput]}
+                placeholder="e.g. SYNCLINK-MAIN or SYNC-8F2B"
+                placeholderTextColor="#475569"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                value={gymId}
+                onChangeText={handleGymIdChange}
+                editable={!isLoading}
+              />
+            </View>
+            <Text style={styles.inputHint}>
+              Alphanumeric ID provided by your gym (e.g. SYNC-XXXX)
+            </Text>
+          </View>
 
           {/* Email Input */}
           <View style={styles.inputWrapper}>
@@ -157,7 +219,7 @@ export default function LoginScreen() {
               <ActivityIndicator color="#0f172a" size="small" />
             ) : (
               <View style={styles.buttonContent}>
-                <Text style={styles.loginButtonText}>Sign In</Text>
+                <Text style={styles.loginButtonText}>Sign In to Gym</Text>
                 <Ionicons name="arrow-forward" size={18} color="#0f172a" />
               </View>
             )}
@@ -170,19 +232,17 @@ export default function LoginScreen() {
             disabled={isLoading}
           >
             <Ionicons name="key-outline" size={14} color="#38bdf8" />
-            <Text style={styles.quickFillText}>Quick-fill default test login</Text>
+            <Text style={styles.quickFillText}>Quick-fill Flagship Gym Demo</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Member Policy Notice (Explains no self-signup) */}
+        {/* Multi-Gym & Membership Notice */}
         <View style={styles.noticeBox}>
-          <Ionicons name="shield-checkmark-outline" size={20} color="#00f2fe" />
+          <Ionicons name="swap-horizontal-outline" size={22} color="#00f2fe" />
           <View style={styles.noticeTextContainer}>
-            <Text style={styles.noticeTitle}>Exclusive Member Access</Text>
+            <Text style={styles.noticeTitle}>Joining a New Gym?</Text>
             <Text style={styles.noticeDesc}>
-              Member accounts are pre-authorized and provisioned by your gym
-              facility. Self-registration is disabled. If you do not have an
-              account, please visit the gym front desk.
+              If you leave one gym and join another on SyncFit, enter your new gym's ID above. You can register with the same email and contact number across multiple gyms without conflict.
             </Text>
           </View>
         </View>
@@ -281,11 +341,45 @@ const styles = StyleSheet.create({
   inputWrapper: {
     marginBottom: 16,
   },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  facilityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 242, 254, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 242, 254, 0.25)',
+    maxWidth: '55%',
+  },
+  facilityBadgeText: {
+    color: '#00f2fe',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  gymIdInput: {
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    color: '#00f2fe',
+  },
+  inputHint: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 5,
+    paddingLeft: 2,
+  },
   inputLabel: {
     fontSize: 12,
     fontWeight: '600',
     color: '#cbd5e1',
-    marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },

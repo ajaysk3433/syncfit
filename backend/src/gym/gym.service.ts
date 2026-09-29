@@ -68,6 +68,12 @@ export class GymService {
         });
     }
 
+    async getGymByCode(code: string): Promise<any> {
+        return withSpan("GymService.getGymByCode", async () => {
+            return await this.gymRepository.findByCode(code.toUpperCase());
+        });
+    }
+
     async regenerateGymQr(gymId?: string): Promise<any> {
         return withSpan("GymService.regenerateGymQr", async () => {
             let targetGym = null;

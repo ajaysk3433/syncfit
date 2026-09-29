@@ -22,20 +22,24 @@ const firebaseConfig = {
 // Initialize Firebase App
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firebase Auth with AsyncStorage persistence for React Native / Native platforms
+// Initialize Firebase Auth with safe persistence fallback for Expo Go and Native
 let authInstance: Auth;
 try {
-  if (Platform.OS === 'web') {
-    authInstance = getAuth(app);
-  } else {
-    // React Native persistent authentication
+  if (Platform.OS !== 'web' && typeof getReactNativePersistence === 'function') {
     authInstance = initializeAuth(app, {
       persistence: getReactNativePersistence(AsyncStorage),
     });
+  } else {
+    authInstance = getAuth(app);
   }
 } catch {
-  // If already initialized in hot reload
-  authInstance = getAuth(app);
+  // If already initialized in hot reload or previous instance exists
+  try {
+    authInstance = getAuth(app);
+  } catch (err) {
+    console.warn('Firebase Auth initialization fallback:', err);
+    authInstance = getAuth(app);
+  }
 }
 
 export const auth = authInstance;

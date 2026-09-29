@@ -10,6 +10,10 @@ router.get(
     gymController.getGymQr
 );
 
+// Public Gym Lookup by Alphanumeric Code (For member mobile login)
+router.get("/lookup", gymController.lookupGym);
+router.get("/lookup/:code", gymController.lookupGym);
+
 // Regenerate default / active Gym QR Code
 router.post(
     "/qr/regenerate",

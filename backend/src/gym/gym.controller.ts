@@ -24,6 +24,43 @@ export class GymController {
         }
     };
 
+    lookupGym = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const rawCode = (req.params.code || req.query.code) as string | undefined;
+            const code = rawCode?.trim().toUpperCase();
+            if (!code) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Gym ID/code is required",
+                });
+            }
+
+            const gym = await this.gymService.getGymByCode(code);
+            if (!gym) {
+                return res.status(404).json({
+                    success: false,
+                    message: `No gym found with ID "${code}". Please check with your gym administrator.`,
+                });
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: "Gym found",
+                data: {
+                    id: gym.id,
+                    name: gym.name,
+                    code: gym.code,
+                    address: gym.address,
+                    city: gym.city,
+                    maxCapacity: gym.maxCapacity,
+                    displayLocation: gym.city ? `${gym.name} (${gym.city})` : gym.name,
+                },
+            });
+        } catch (error) {
+            next(error);
+        }
+    };
+
     regenerateGymQr = async (req: Request, res: Response, next: NextFunction) => {
         try {
             const gymId = (req.params.id as string | undefined) || (req.body?.gymId as string | undefined);

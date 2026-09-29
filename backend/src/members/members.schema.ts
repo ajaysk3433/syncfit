@@ -22,6 +22,8 @@ export const createMemberSchema = z.object({
         referralCodeUsed: z.string().trim().optional(),
         barcode: z.string().trim().optional(),
         planId: z.string().uuid("Invalid plan ID format").optional(),
+        gymId: z.string().optional(),
+        gymCode: z.string().trim().optional(),
     }),
 });
 

@@ -45,10 +45,29 @@ class AuthController {
             const activeAttendance = await (await import("../attendance/attendance.repository.js")).default.findActiveAttendanceByUserId(user.id);
             const activeMembership = await (await import("../membership-plans/plans.repository.js")).default.findActiveMembershipByUserId(user.id);
 
+            // Resolve gym facility details
+            let gym: any = null;
+            const prisma = (await import("../core/configs/prisma.js")).default;
+            if (user.gymId) {
+                gym = await prisma.gym.findUnique({ where: { id: user.gymId } });
+            }
+            if (!gym && activeAttendance?.gym) {
+                gym = activeAttendance.gym;
+            }
+            if (!gym) {
+                const gymService = (await import("../gym/gym.service.js")).default;
+                gym = await gymService.getOrCreateDefaultGym();
+            }
+
             return res.status(200).json({
                 success: true,
                 data: {
-                    user,
+                    user: {
+                        ...user,
+                        gymId: gym ? gym.id : user.gymId,
+                        gymCode: gym ? gym.code : null,
+                    },
+                    gym,
                     activeAttendance,
                     activeMembership,
                 },

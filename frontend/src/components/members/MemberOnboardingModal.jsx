@@ -3,10 +3,12 @@ import { Modal } from "../common/Modal";
 import { membersApi } from "../../api/membersApi";
 import { plansApi } from "../../api/plansApi";
 import { useToast } from "../../context/ToastContext";
-import { UserPlus, Sparkles } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { UserPlus, Sparkles, Building } from "lucide-react";
 
 export const MemberOnboardingModal = ({ isOpen, onClose, onCreated }) => {
   const toast = useToast();
+  const { activeGym, gymCode } = useAuth();
   const [plans, setPlans] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -62,6 +64,8 @@ export const MemberOnboardingModal = ({ isOpen, onClose, onCreated }) => {
         ? formData.fitnessGoals.split(",").map((g) => g.trim()).filter(Boolean)
         : [];
 
+      const effectiveGymCode = gymCode || activeGym?.code || undefined;
+
       const payload = {
         name: formData.name.trim(),
         email: formData.email.trim(),
@@ -82,10 +86,15 @@ export const MemberOnboardingModal = ({ isOpen, onClose, onCreated }) => {
         preferences: formData.preferences.trim() || undefined,
         referralCodeUsed: formData.referralCodeUsed.trim() || undefined,
         barcode: formData.barcode.trim() || undefined,
+        gymCode: effectiveGymCode,
       };
 
       const result = await membersApi.createMember(payload);
-      toast.success(`Member ${formData.name} onboarded successfully!`);
+      toast.success(
+        effectiveGymCode
+          ? `Member ${formData.name} onboarded! They can sign in on the mobile app using Gym ID: ${effectiveGymCode}`
+          : `Member ${formData.name} onboarded successfully!`
+      );
       onCreated(result);
       onClose();
     } catch (err) {

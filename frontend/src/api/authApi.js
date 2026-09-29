@@ -9,6 +9,13 @@ export const authApi = {
     });
   },
 
+  // Get current authenticated user profile and gym info
+  getMe: async () => {
+    return await apiRequest("/v1/auth/me", {
+      method: "GET",
+    });
+  },
+
   // Health check
   checkHealth: async () => {
     return await apiRequest("/health", {

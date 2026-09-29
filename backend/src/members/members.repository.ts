@@ -75,8 +75,13 @@ export class MembersRepository {
 
     async findByEmail(email: string): Promise<User | null> {
         return withSpan("MembersRepository.findByEmail", async () => {
-            return await this.db.user.findUnique({
-                where: { email },
+            return await this.db.user.findFirst({
+                where: {
+                    OR: [
+                        { email },
+                        { rawEmail: email },
+                    ],
+                },
                 include: { profile: true },
             });
         });
