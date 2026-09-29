@@ -37,6 +37,15 @@ SyncFit is engineered to solve modern challenges in fitness club administration 
 - Automated plan assignment, auto-renewal flags, cancellation handling, and pause/resume states.
 - Automated database plan bootstrap for instant local setup.
 
+### 2.5 Option 1: Native Password Reset Delivery (RFC 5233 Sub-Addressing)
+- **Direct Mailbox Routing**: SyncFit provisions gym-scoped Firebase accounts using plus-addressing:
+  $$\text{scopedEmail} = \text{username} + \text{cleanGymCode} @ \text{domain}$$
+  *Example*: `alex+spar4531@gmail.com` for a member at Spartan Fitness (`SPAR-4531`).
+- **Direct-to-Inbox Delivery**: Standard mail servers (Gmail, Outlook, iCloud, ProtonMail) automatically strip `+tag` labels upon receiving mail. When Firebase Auth sends a password reset email to `alex+spar4531@gmail.com`, it arrives directly in `alex@gmail.com`'s primary inbox.
+- **Zero External SMTP Overhead**: All cryptographic tokens, reset link dispatches, expiration checks, and password reset web interfaces are handled natively by Firebase Auth.
+- **Mobile Password Reset Modal**: Members tap **"Forgot Password?"** on the mobile login screen, verify their Gym ID and registered email, and trigger an automated reset email without needing staff intervention.
+- **Web Owner Reset**: Gym owners and administrators can also trigger password resets from the web portal login card.
+
 ---
 
 ## 3. Technology Stack
@@ -127,15 +136,64 @@ syncfit/
 ├── mobile-app/               # React Native Member Application (Expo 57)
 │   ├── src/
 │   │   ├── app/              # Expo Router tabs (Home / Explore)
-│   │   ├── components/       # LoginScreen, QRScannerModal, ScanResultModal
+│   │   ├── components/       # LoginScreen (with Password Reset Modal), QRScannerModal
 │   │   ├── config/           # Firebase client initialization
-│   │   ├── context/          # AuthContext with multi-tenant Gym ID
+│   │   ├── context/          # AuthContext with multi-tenant Gym ID & reset logic
 │   │   └── services/         # API service with Metro host auto-discovery
 │   └── package.json
 │
 └── docs/                     # Comprehensive technical documentation
     ├── README.md             # Documentation portal index
-    ├── PROJECT_OVERVIEW.md   # This document
+    ├── PROJECT_OVERVIEW.md   # Product overview & Option 1 mechanics (this document)
     ├── DATABASE_SCHEMA.md    # Complete database schema reference
     └── BACKEND_ARCHITECTURE.md# Backend layers, flows, and API reference
 ```
+
+---
+
+## 6. Multi-Tenant Password Reset Architecture (Option 1 Deep Dive)
+
+SyncFit utilizes **Option 1 (RFC 5233 Plus-Addressing)** to bridge Firebase Authentication and multi-tenant facility isolation without requiring an in-house SMTP microservice.
+
+### 6.1 The Challenge: Multi-Gym Isolation vs. Global Uniqueness
+In a fitness platform, members frequently change gyms or maintain memberships at multiple facilities (e.g., home gym and office gym). 
+- If Firebase Auth used the member's raw email (`alex@gmail.com`), Gym B could not register Alex because Firebase Auth enforces global email uniqueness across the entire project.
+- If Gym B prefixed the email as `gymb_alex@gmail.com`, Firebase Auth could not deliver a password reset email because `gymb_alex@gmail.com` is a non-existent email address.
+
+### 6.2 The Option 1 Solution: Sub-Addressing
+Under **RFC 5233**, modern mail servers (Gmail, Outlook, iCloud, ProtonMail) support plus-tagging:
+$$\text{alex+spar4531@gmail.com} \longrightarrow \text{Delivered to inbox of } \textbf{alex@gmail.com}$$
+
+### 6.3 Complete Flowchart
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Member as Member (Mobile App)
+    participant UI as LoginScreen.tsx Modal
+    participant AuthCtx as Mobile AuthContext
+    participant FB as Firebase Auth Service
+    participant MailServer as Email Provider (Gmail/Outlook)
+    participant Inbox as Member's Real Inbox
+
+    Member->>UI: Taps "Forgot Password?"
+    UI->>UI: Enters Gym ID (SPAR-4531) & Email (alex@gmail.com)
+    UI->>AuthCtx: sendPasswordReset("SPAR-4531", "alex@gmail.com")
+    AuthCtx->>AuthCtx: Compute plus-scoped email: alex+spar4531@gmail.com
+    AuthCtx->>FB: sendPasswordResetEmail(auth, "alex+spar4531@gmail.com")
+    FB->>FB: Generates cryptographic one-time token & action link
+    FB->>MailServer: Dispatches reset email to alex+spar4531@gmail.com
+    MailServer->>MailServer: Strips '+spar4531' per RFC 5233
+    MailServer->>Inbox: Delivers message to alex@gmail.com
+    Inbox-->>Member: Notification: "Reset your SyncFit password"
+    Member->>FB: Clicks secure link & enters new password
+    FB->>FB: Updates credentials for alex+spar4531@gmail.com
+    Member->>UI: Signs in with Gym ID, Email, and new password
+    UI-->>Member: Successfully authenticated into SPAR-4531
+```
+
+### 6.4 Key Technical Advantages
+1. **Zero SMTP Infrastructure**: No need to configure, monitor, or pay for external transactional email services (e.g., SendGrid, Mailgun, Amazon SES).
+2. **Built-in Security**: Tokens are generated, signed, and expired by Google's secure authentication infrastructure with automatic rate-limiting protection (`auth/too-many-requests`).
+3. **Full Backward Compatibility**: The mobile client handles fallback cascades for accounts created with legacy prefixes (`spar4531_alex@gmail.com`) or direct email (`admin@syncfit.com`).
+

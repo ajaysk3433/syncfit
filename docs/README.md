@@ -77,12 +77,13 @@ npm start         # For Expo Go QR code on physical devices
 
 ---
 
-## 🔑 Multi-Tenant Architecture Summary
+## 🔑 Multi-Tenant Architecture & Password Reset Summary (Option 1)
 
 SyncFit decouples gym membership from global email uniqueness:
-1. **Gym Registration**: Every gym registered on the web portal receives a unique alphanumeric Gym ID (e.g. `SYNC-8F2B`).
-2. **Gym-Scoped Member Identity**: Members are stored in PostgreSQL and Firebase Auth with a gym prefix (`<gymId>_<email>`), while preserving their original contact email and phone number in `User.rawEmail` and `User.phone`.
-3. **Cross-Gym Freedom**: If a member leaves one gym and joins another facility using SyncFit, the new gym onboards them with their existing email and phone number without conflicts. The member simply inputs the new gym's ID on the mobile login screen.
+1. **Gym Registration**: Every gym registered on the web portal receives a unique alphanumeric Gym ID (e.g. `SYNC-8F2B`, `SPAR-4531`).
+2. **Gym-Scoped Plus-Addressing (Option 1)**: Members are stored in PostgreSQL and Firebase Auth using RFC 5233 sub-addressing (`<username>+<cleanGymCode>@<domain>`), while preserving their original contact email and phone in `User.rawEmail` and `User.phone`.
+3. **Native Firebase Password Reset**: When a member requests a password reset, Firebase Auth sends the reset link directly to `<username>+<cleanGymCode>@<domain>`, which standard email providers (Gmail, Outlook, iCloud) deliver straight into the member's real inbox with zero external SMTP microservices needed.
+4. **Cross-Gym Freedom**: If a member leaves one gym and joins another facility using SyncFit, the new gym onboards them with their existing email and phone number without conflicts. The member simply inputs the new gym's ID on the mobile login screen.
 
 ---
 
