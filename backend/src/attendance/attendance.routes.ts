@@ -1,8 +1,9 @@
 import express from "express";
 import attendanceController from "./attendance.controller.js";
 import { validate } from "../core/middlewares/validate.middleware.js";
-import { authenticate, authorizeRoles } from "../core/middlewares/auth.middleware.js";
+import { authenticate, optionalAuthenticate, authorizeRoles } from "../core/middlewares/auth.middleware.js";
 import {
+    memberScanSchema,
     checkInSchema,
     checkOutSchema,
     autoCheckoutSchema,
@@ -40,16 +41,23 @@ router.get(
     attendanceController.getMemberFrequencyAnalytics
 );
 
+// Member Phone App scans Gym QR Code (Auto Check-In & Check-Out)
+router.post(
+    "/scan",
+    optionalAuthenticate,
+    attendanceController.scan
+);
+
 // Check-in & Check-out
 router.post(
     "/check-in",
-   // validate(checkInSchema),
+    optionalAuthenticate,
     attendanceController.checkIn
 );
 
 router.post(
     "/check-out",
-    //validate(checkOutSchema),
+    optionalAuthenticate,
     attendanceController.checkOut
 );
 

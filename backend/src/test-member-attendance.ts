@@ -3,10 +3,11 @@ import prisma from "./core/configs/prisma.js";
 import plansService from "./membership-plans/plans.service.js";
 import membersService from "./members/members.service.js";
 import attendanceService from "./attendance/attendance.service.js";
+import gymService from "./gym/gym.service.js";
 import { logger } from "./core/logs/logs.js";
 
 async function runVerification() {
-    console.log("🚀 Starting End-to-End Verification for Member Management & Attendance...");
+    console.log("🚀 Starting End-to-End Verification for Member Management & Attendance (Gym QR System)...");
 
     try {
         // Step 1: Create Membership Plans
@@ -73,27 +74,31 @@ async function runVerification() {
         const upgraded = await plansService.upgradeMembership(memberId, vipPlan.id, "Upgraded to VIP package");
         console.log(`✅ Membership Upgraded to VIP: ${upgraded.id} (Status: ${upgraded.status})`);
 
-        // Step 4: QR Code Access
-        console.log("\n📱 4. Testing Member QR Access Token...");
-        const qrInfo = await membersService.getMemberAccessQr(memberId);
-        console.log(`✅ Member QR Code Key: ${qrInfo.qrCodeKey}`);
+        // Step 4: Gym Facility QR Code Setup
+        console.log("\n🏢 4. Testing Gym Facility & QR Access Code...");
+        const gymQrInfo = await gymService.getGymQr();
+        console.log(`✅ Gym QR Code Key: ${gymQrInfo.qrCodeKey}`);
+        console.log(`✅ Gym QR Scanner Payload: ${gymQrInfo.qrPayload}`);
 
-        // Step 5: Attendance Check-in & Check-out Engine
-        console.log("\n🚪 5. Testing Attendance Check-in Engine...");
-        const checkInResult = await attendanceService.checkIn({
-            qrCodeKey: qrInfo.qrCodeKey,
-            method: "QR_CODE",
-            location: "Downtown SyncFit Gym",
-            notes: "Morning workout",
+        // Step 5: Member Phone App Scans Gym QR Code to Check In
+        console.log("\n📱 5. Testing Member Phone App Scanning Gym QR to Check In...");
+        const checkInResult = await attendanceService.scanMemberQr({
+            gymQrCode: gymQrInfo.qrCodeKey,
+            memberId,
+            action: "AUTO",
+            notes: "Member scanned entrance Gym QR from phone app",
         });
-        console.log(`✅ Check-in Success: Attendance ID = ${checkInResult.attendanceId}`);
+        console.log(`✅ Member Check-in Success via Gym QR!`);
+        console.log(`   Action: ${checkInResult.action}, Attendance ID: ${checkInResult.attendanceId}`);
+        console.log(`   Gym: ${checkInResult.gym?.name} (${checkInResult.gym?.code})`);
         console.log(`   Member: ${checkInResult.member?.name}, Tier: ${checkInResult.member?.tier}`);
         console.log(`   Membership Plan: ${checkInResult.membership?.planName}, Remaining Days: ${checkInResult.membership?.remainingDays}`);
 
         // Duplicate check-in detection
-        const dupCheckIn = await attendanceService.checkIn({
+        const dupCheckIn = await attendanceService.scanMemberQr({
+            gymQrCode: gymQrInfo.qrCodeKey,
             memberId,
-            method: "MANUAL",
+            action: "CHECK_IN",
         });
         console.log(`✅ Duplicate Check-in Handled: alreadyCheckedIn = ${dupCheckIn.alreadyCheckedIn}`);
 
@@ -103,13 +108,16 @@ async function runVerification() {
         console.log(`✅ Live Occupancy: ${occupancy.currentCount} / ${occupancy.maxCapacity} (${occupancy.occupancyPercentage}%)`);
         console.log(`   Active Occupants in Facility: ${occupancy.activeOccupants.length}`);
 
-        // Check-out
-        console.log("\n🚪 7. Testing Check-out Engine...");
-        const checkOutResult = await attendanceService.checkOut({
-            attendanceId: checkInResult.attendanceId,
-            notes: "Finished chest & triceps session",
+        // Step 7: Member Phone App Scans Gym QR Code to Check Out
+        console.log("\n🚪 7. Testing Member Phone App Scanning Gym QR to Check Out...");
+        const checkOutResult = await attendanceService.scanMemberQr({
+            gymQrCode: gymQrInfo.qrCodeKey,
+            memberId,
+            action: "AUTO",
+            notes: "Member scanned exit Gym QR from phone app",
         });
-        console.log(`✅ Check-out Success: Duration = ${checkOutResult.durationMinutes} mins, Status = ${checkOutResult.status}`);
+        console.log(`✅ Member Check-out Success via Gym QR!`);
+        console.log(`   Action: ${checkOutResult.action}, Duration = ${checkOutResult.durationMinutes} mins, Status = ${checkOutResult.status}`);
 
         // Step 8: Check-in Denial Validations (Suspended Account & No Membership)
         console.log("\n⛔ 8. Testing Access Restrictions & Denial Logs...");

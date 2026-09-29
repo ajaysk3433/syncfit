@@ -8,11 +8,12 @@ import AuthRouter from "./auth/auth.routs.js";
 import MembersRouter from "./members/members.routes.js";
 import PlansRouter from "./membership-plans/plans.routes.js";
 import AttendanceRouter from "./attendance/attendance.routes.js";
+import GymRouter from "./gym/gym.routes.js";
 import { swaggerDocument } from "./core/docs/swagger.js";
 import "./core/configs/firebase.js";
 import { errorHandler } from './core/error/error-handler.js';
 import { prisma } from './core/configs/prisma.js';
-import { bootstrapAdminUser } from './core/configs/bootstrap.js';
+import { bootstrapAdminUser, bootstrapDefaultGym } from './core/configs/bootstrap.js';
 
 const PORT: number = parseInt(process.env.PORT || '8080');
 export const app: Express = express();
@@ -39,6 +40,8 @@ app.use("/v1/auth", AuthRouter);
 app.use("/v1/members", MembersRouter);
 app.use("/v1/membership-plans", PlansRouter);
 app.use("/v1/attendance", AttendanceRouter);
+app.use("/v1/gym", GymRouter);
+app.use("/v1/gyms", GymRouter);
 
 // Health check endpoint
 app.get("/health", (_req, res) => {
@@ -52,8 +55,9 @@ const server = app.listen(PORT, async () => {
     logger.info(`Listening for requests on http://localhost:${PORT}`);
     logger.info(`Swagger UI documentation available at http://localhost:${PORT}/docs`);
 
-    // Bootstrap default admin user on startup
+    // Bootstrap default admin user and gym on startup
     await bootstrapAdminUser();
+    await bootstrapDefaultGym();
 });
 
 const gracefulShutdown = async (signal: string) => {

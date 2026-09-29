@@ -5,7 +5,7 @@ import { withSpan } from "../core/telemetry/tracer.js";
 export class AttendanceRepository {
     constructor(private readonly db: PrismaClient) {}
 
-    async createAttendance(data: Prisma.AttendanceCreateInput): Promise<Attendance> {
+    async createAttendance(data: Prisma.AttendanceCreateInput): Promise<any> {
         return withSpan("AttendanceRepository.createAttendance", async () => {
             return await this.db.attendance.create({
                 data,
@@ -13,6 +13,7 @@ export class AttendanceRepository {
                     user: {
                         include: { profile: true },
                     },
+                    gym: true,
                 },
             });
         });
@@ -26,12 +27,13 @@ export class AttendanceRepository {
                     user: {
                         include: { profile: true },
                     },
+                    gym: true,
                 },
             });
         });
     }
 
-    async findActiveAttendanceByUserId(userId: string): Promise<Attendance | null> {
+    async findActiveAttendanceByUserId(userId: string): Promise<any | null> {
         return withSpan("AttendanceRepository.findActiveAttendanceByUserId", async () => {
             return await this.db.attendance.findFirst({
                 where: {
@@ -39,12 +41,18 @@ export class AttendanceRepository {
                     status: "CHECKED_IN",
                     checkOutTime: null,
                 },
+                include: {
+                    user: {
+                        include: { profile: true },
+                    },
+                    gym: true,
+                },
                 orderBy: { checkInTime: "desc" },
             });
         });
     }
 
-    async updateAttendance(id: string, data: Prisma.AttendanceUpdateInput): Promise<Attendance> {
+    async updateAttendance(id: string, data: Prisma.AttendanceUpdateInput): Promise<any> {
         return withSpan("AttendanceRepository.updateAttendance", async () => {
             return await this.db.attendance.update({
                 where: { id },
@@ -53,6 +61,7 @@ export class AttendanceRepository {
                     user: {
                         include: { profile: true },
                     },
+                    gym: true,
                 },
             });
         });
@@ -65,6 +74,7 @@ export class AttendanceRepository {
                 skip,
                 take,
                 include: {
+                    gym: true,
                     user: {
                         select: {
                             id: true,
@@ -153,6 +163,7 @@ export class AttendanceRepository {
                 select: {
                     id: true,
                     userId: true,
+                    gymId: true,
                     checkInTime: true,
                     checkOutTime: true,
                     durationMinutes: true,

@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { getAuth } from "firebase-admin/auth";
 import { firebaseApp } from "./firebase.js";
 import prisma from "./prisma.js";
@@ -84,5 +85,35 @@ export async function bootstrapAdminUser(): Promise<void> {
         }
     } catch (error: any) {
         logger.error(`Failed to bootstrap default admin user: ${error.message}`, { error });
+    }
+}
+
+/**
+ * Ensures a default Gym facility with an active QR code exists in the database.
+ */
+export async function bootstrapDefaultGym(): Promise<void> {
+    try {
+        const existingGym = await prisma.gym.findFirst({
+            where: { isActive: true },
+        });
+
+        if (!existingGym) {
+            const defaultGym = await prisma.gym.create({
+                data: {
+                    name: "SyncFit Flagship Gym",
+                    code: "SYNCLINK-MAIN",
+                    address: "100 Fitness Boulevard",
+                    city: "Metropolis",
+                    maxCapacity: 150,
+                    isActive: true,
+                    qrCodeKey: `gym_qr_${crypto.randomUUID()}`,
+                },
+            });
+            logger.info(`Bootstrapped default gym facility: ${defaultGym.name} (${defaultGym.code}) - QR Key: ${defaultGym.qrCodeKey}`);
+        } else {
+            logger.info(`Active gym facility: ${existingGym.name} (${existingGym.code}) - QR Key: ${existingGym.qrCodeKey}`);
+        }
+    } catch (error: any) {
+        logger.error(`Failed to bootstrap default gym: ${error.message}`, { error });
     }
 }

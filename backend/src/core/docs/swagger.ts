@@ -21,6 +21,7 @@ export const swaggerDocument = {
     { name: "Members", description: "Member profiles, onboarding, status, and QR access tokens" },
     { name: "Membership Plans", description: "Membership pricing, duration, and feature packages" },
     { name: "Member Subscriptions", description: "Member subscription lifecycle (assign, pause, resume, cancel, renew, upgrade)" },
+    { name: "Gym Facility & QR Code", description: "Gym facility management and facility QR codes for member mobile app check-in/out" },
     { name: "Attendance & Access Control", description: "Check-in/out engine, restrictions validation, auto check-out, and live occupancy" },
     { name: "Analytics", description: "Attendance overview, peak gym traffic hours, and churn risk metrics" },
     { name: "System", description: "Health check and system diagnostics" },
@@ -340,10 +341,85 @@ export const swaggerDocument = {
     "/v1/members/{id}/access-qr/regenerate": {
       post: {
         tags: ["Members"],
-        summary: "Regenerate Member QR Code Token",
+        summary: "Regenerate Member QR Code Token (Deprecated: Gym QR is now used)",
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
         responses: {
           200: { description: "New QR code key generated" },
+        },
+      },
+    },
+    "/v1/gym/qr": {
+      get: {
+        tags: ["Gym Facility & QR Code"],
+        summary: "Get Gym QR Code for Display (Screen / Print)",
+        description: "Returns the active Gym facility QR code token and JSON scanner payload for displaying at the gym entrance/turnstile. Members scan this from their mobile phone app.",
+        parameters: [
+          { name: "gymId", in: "query", schema: { type: "string", format: "uuid" }, description: "Optional specific gym facility ID" },
+          { name: "code", in: "query", schema: { type: "string" }, description: "Optional gym facility code (e.g. SYNCLINK-MAIN)" },
+        ],
+        responses: {
+          200: { description: "Gym QR code retrieved successfully with qrPayload" },
+          404: { description: "Gym facility not found" },
+        },
+      },
+    },
+    "/v1/gym/qr/regenerate": {
+      post: {
+        tags: ["Gym Facility & QR Code"],
+        summary: "Regenerate Gym QR Code Token (Admin/Manager)",
+        description: "Rotates the Gym QR code key for security. Invalidates previous physical/displayed QR codes and generates a fresh token.",
+        security: [{ bearerAuth: [] }, { devUserIdHeader: [] }],
+        requestBody: {
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  gymId: { type: "string", format: "uuid" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Gym QR code regenerated successfully" },
+        },
+      },
+    },
+    "/v1/gyms": {
+      get: {
+        tags: ["Gym Facility & QR Code"],
+        summary: "List all Gym Facilities",
+        security: [{ bearerAuth: [] }, { devUserIdHeader: [] }],
+        responses: {
+          200: { description: "List of gym facilities" },
+        },
+      },
+      post: {
+        tags: ["Gym Facility & QR Code"],
+        summary: "Create New Gym Facility (Admin)",
+        security: [{ bearerAuth: [] }, { devUserIdHeader: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name", "code"],
+                properties: {
+                  name: { type: "string", example: "Downtown Fitness Center" },
+                  code: { type: "string", example: "GYM-DT-01" },
+                  address: { type: "string", example: "456 Market St" },
+                  city: { type: "string", example: "Metropolis" },
+                  phone: { type: "string", example: "+15551234567" },
+                  maxCapacity: { type: "integer", default: 150 },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: "Gym created with auto-generated qrCodeKey" },
         },
       },
     },
@@ -563,6 +639,37 @@ export const swaggerDocument = {
         },
         responses: {
           200: { description: "Membership upgraded" },
+        },
+      },
+    },
+    "/v1/attendance/scan": {
+      post: {
+        tags: ["Attendance & Access Control"],
+        summary: "Member Phone App Scans Gym QR Code (Auto Check-In & Check-Out)",
+        description: "Primary access method. The Gym displays its QR code at entrance/exit. Member scans the Gym QR code from their mobile phone app. The system automatically identifies the member from their authentication token (or memberId), validates active membership, and intelligently performs Check-In (if arriving) or Check-Out (if departing).",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["gymQrCode"],
+                properties: {
+                  gymQrCode: { type: "string", description: "Scanned QR code token from the Gym facility" },
+                  qrCodeKey: { type: "string", description: "Alias for gymQrCode" },
+                  action: { type: "string", enum: ["AUTO", "CHECK_IN", "CHECK_OUT"], default: "AUTO", description: "AUTO will check-in if not currently inside, or check-out if already inside." },
+                  memberId: { type: "string", format: "uuid", description: "Optional if user is authenticated via Bearer token or x-user-id" },
+                  notes: { type: "string", description: "Optional notes" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Action completed successfully (CHECKED_IN or CHECKED_OUT)" },
+          400: { description: "Invalid request or missing identification" },
+          403: { description: "Access denied (suspended account or no active membership)" },
+          404: { description: "Gym QR code not found or inactive facility" },
         },
       },
     },

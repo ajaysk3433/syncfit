@@ -125,7 +125,7 @@ model MemberProfile {
   primaryMemberId          String?
   primaryMember            MemberProfile?  @relation("FamilyDependents", fields: [primaryMemberId], references: [id], onDelete: SetNull)
   dependents               MemberProfile[] @relation("FamilyDependents")
-  qrCodeKey                String          @unique @default(uuid())
+  qrCodeKey                String?         @unique
   barcode                  String?         @unique
   notes                    String?
   createdAt                DateTime        @default(now())
@@ -193,6 +193,8 @@ model Attendance {
   id              String           @id @default(uuid())
   userId          String
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gymId           String?
+  gym             Gym?             @relation(fields: [gymId], references: [id], onDelete: SetNull)
   checkInTime     DateTime         @default(now())
   checkOutTime    DateTime?
   durationMinutes Int?
@@ -206,6 +208,25 @@ model Attendance {
   updatedAt       DateTime         @updatedAt
 
   @@map("attendances")
+}
+
+model Gym {
+  id              String        @id @default(uuid())
+  name            String
+  code            String        @unique
+  address         String?
+  city            String?
+  phone           String?
+  qrCodeKey       String        @unique @default(uuid())
+  dynamicQrSecret String?
+  isActive        Boolean       @default(true)
+  maxCapacity     Int           @default(150)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  attendances     Attendance[]
+
+  @@map("gyms")
 }
 
 model VisitorPass {

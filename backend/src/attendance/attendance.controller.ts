@@ -6,11 +6,31 @@ import type { AuthenticatedRequest } from "../core/middlewares/auth.middleware.j
 class AttendanceController {
     constructor(private readonly attendanceService: AttendanceService) {}
 
+    /**
+     * Member Phone App scans Gym QR Code to check in / check out
+     */
+    scan = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+        try {
+            const authenticatedUserId = req.user?.id;
+            const result = await withSpan("AttendanceController.scan", async () => {
+                return await this.attendanceService.scanMemberQr(req.body, authenticatedUserId);
+            });
+            return res.status(200).json({
+                success: true,
+                message: result.message,
+                action: result.action,
+                data: result,
+            });
+        } catch (error) {
+            next(error);
+        }
+    };
+
     checkIn = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         try {
-            const staffId = req.user?.id;
+            const staffOrUserId = req.user?.id;
             const result = await withSpan("AttendanceController.checkIn", async () => {
-                return await this.attendanceService.checkIn(req.body, staffId);
+                return await this.attendanceService.checkIn(req.body, staffOrUserId, staffOrUserId);
             });
             return res.status(200).json({
                 success: true,
@@ -22,10 +42,11 @@ class AttendanceController {
         }
     };
 
-    checkOut = async (req: Request, res: Response, next: NextFunction) => {
+    checkOut = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
         try {
+            const userId = req.user?.id;
             const result = await withSpan("AttendanceController.checkOut", async () => {
-                return await this.attendanceService.checkOut(req.body);
+                return await this.attendanceService.checkOut(req.body, userId);
             });
             return res.status(200).json({
                 success: true,

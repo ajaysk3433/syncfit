@@ -2,6 +2,7 @@ import type { CheckInMethod, AttendanceStatus } from "@prisma/client";
 import attendanceRepository, { AttendanceRepository } from "./attendance.repository.js";
 import membersRepository, { MembersRepository } from "../members/members.repository.js";
 import plansRepository, { PlansRepository } from "../membership-plans/plans.repository.js";
+import gymService, { GymService } from "../gym/gym.service.js";
 import prisma from "../core/configs/prisma.js";
 import { withSpan } from "../core/telemetry/tracer.js";
 import { logger } from "../core/logs/logs.js";
@@ -11,6 +12,7 @@ import {
     NotFoundError,
 } from "../core/error/errors.js";
 import type {
+    MemberScanInput,
     CheckInInput,
     CheckOutInput,
     AutoCheckoutInput,
@@ -21,32 +23,223 @@ export class AttendanceService {
     constructor(
         private readonly attendanceRepository: AttendanceRepository,
         private readonly membersRepository: MembersRepository,
-        private readonly plansRepository: PlansRepository
+        private readonly plansRepository: PlansRepository,
+        private readonly gymService: GymService
     ) {}
 
-    async checkIn(input: CheckInInput, checkedInByStaffId?: string): Promise<any> {
-        return withSpan("AttendanceService.checkIn", async () => {
-            // Step 1: Resolve User
-            let user: any = null;
+    /**
+     * Primary endpoint for Member Phone App scanning the Gym QR Code
+     * Performs automated check-in or check-out based on current member presence.
+     */
+    async scanMemberQr(input: MemberScanInput, authenticatedUserId?: string): Promise<any> {
+        return withSpan("AttendanceService.scanMemberQr", async () => {
+            const memberId = input.memberId || authenticatedUserId;
+            if (!memberId) {
+                throw new BadRequestError("Member identification required. Please authenticate in your phone app or provide memberId.");
+            }
 
-            if (input.memberId) {
-                user = await this.membersRepository.findMemberById(input.memberId);
-            } else if (input.qrCodeKey) {
-                const profile = await this.membersRepository.findByQrCodeKey(input.qrCodeKey);
-                if (profile?.user) {
-                    user = await this.membersRepository.findMemberById(profile.user.id);
+            const user = await this.membersRepository.findMemberById(memberId);
+            if (!user) {
+                throw new NotFoundError("Member not found in system");
+            }
+
+            // Step 1: Validate Gym QR code scanned by the member
+            const gymQrToken = input.gymQrCode || input.qrCodeKey;
+            if (!gymQrToken) {
+                throw new BadRequestError("Gym QR code token is required");
+            }
+
+            const gym = await this.gymService.validateGymQr(gymQrToken);
+
+            // Step 2: Account Status Validation
+            if (user.status === "SUSPENDED" || user.status === "INACTIVE") {
+                await this.attendanceRepository.createAttendance({
+                    user: { connect: { id: user.id } },
+                    gym: { connect: { id: gym.id } },
+                    status: "DENIED",
+                    denialReason: `ACCOUNT_${user.status}`,
+                    method: "QR_CODE",
+                    location: gym.name,
+                    ...(input.notes ? { notes: input.notes } : {}),
+                });
+                logger.warn(`QR scan denied for member ${user.id}: Account status is ${user.status}`);
+                throw new ForbiddenError(`Access denied: Member account is ${user.status.toLowerCase()}`);
+            }
+
+            // Step 3: Membership Plan Validation
+            const activeMembership = await this.plansRepository.findActiveMembershipByUserId(user.id);
+            if (!activeMembership && user.role === "MEMBER") {
+                await this.attendanceRepository.createAttendance({
+                    user: { connect: { id: user.id } },
+                    gym: { connect: { id: gym.id } },
+                    status: "DENIED",
+                    denialReason: "NO_ACTIVE_MEMBERSHIP",
+                    method: "QR_CODE",
+                    location: gym.name,
+                    ...(input.notes ? { notes: input.notes } : {}),
+                });
+                logger.warn(`QR scan denied for member ${user.id}: No active membership plan`);
+                throw new ForbiddenError("Access denied: You do not have an active membership plan to access the facility");
+            }
+
+            // Step 4: Check if already checked in to decide Check-In vs Check-Out
+            const existingActive = await this.attendanceRepository.findActiveAttendanceByUserId(user.id);
+            const requestedAction = input.action || "AUTO";
+
+            // If action is CHECK_OUT, or AUTO when already checked in -> Member is CHECKING OUT
+            if (requestedAction === "CHECK_OUT" || (requestedAction === "AUTO" && existingActive)) {
+                if (!existingActive) {
+                    throw new BadRequestError("No active check-in session found to check out");
                 }
-            } else if (input.barcode) {
+
+                const checkOutTime = new Date();
+                const durationMinutes = Math.max(
+                    1,
+                    Math.round((checkOutTime.getTime() - existingActive.checkInTime.getTime()) / (1000 * 60))
+                );
+
+                const updated = await this.attendanceRepository.updateAttendance(existingActive.id, {
+                    status: "CHECKED_OUT",
+                    checkOutTime,
+                    durationMinutes,
+                    notes: input.notes
+                        ? `${existingActive.notes || ""}\n[Member Phone App Check-Out]: ${input.notes}`.trim()
+                        : existingActive.notes,
+                });
+
+                logger.info(`Member ${user.id} (${user.name}) scanned Gym QR and checked OUT from ${gym.name}. Duration: ${durationMinutes} mins`);
+
+                return {
+                    action: "CHECKED_OUT",
+                    message: `Check-out successful! Thank you for working out at ${gym.name}.`,
+                    attendanceId: updated.id,
+                    checkInTime: updated.checkInTime,
+                    checkOutTime: updated.checkOutTime,
+                    durationMinutes,
+                    status: updated.status,
+                    method: "QR_CODE",
+                    gym: {
+                        id: gym.id,
+                        name: gym.name,
+                        code: gym.code,
+                        location: gym.city ? `${gym.name} (${gym.city})` : gym.name,
+                    },
+                    member: {
+                        id: user.id,
+                        name: user.name,
+                        tier: user.memberTier,
+                    },
+                };
+            }
+
+            // If requestedAction is explicitly CHECK_IN and member is already checked in
+            if (requestedAction === "CHECK_IN" && existingActive) {
+                logger.info(`Member ${user.id} scanned Gym QR but is already checked in`);
+                return {
+                    action: "ALREADY_CHECKED_IN",
+                    alreadyCheckedIn: true,
+                    message: `Member is already checked in at ${existingActive.location || gym.name}`,
+                    attendance: existingActive,
+                    gym: {
+                        id: gym.id,
+                        name: gym.name,
+                        code: gym.code,
+                    },
+                };
+            }
+
+            // Otherwise -> Member is CHECKING IN
+            const attendance = await this.attendanceRepository.createAttendance({
+                user: { connect: { id: user.id } },
+                gym: { connect: { id: gym.id } },
+                status: "CHECKED_IN",
+                checkInTime: new Date(),
+                method: "QR_CODE",
+                location: gym.name,
+                ...(input.notes ? { notes: `[Member Phone App Check-In]: ${input.notes}` } : {}),
+            });
+
+            logger.info(`Member ${user.id} (${user.name}) scanned Gym QR and checked IN at ${gym.name}`);
+
+            const remainingDays = activeMembership
+                ? Math.max(0, Math.ceil((activeMembership.endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+                : null;
+
+            return {
+                action: "CHECKED_IN",
+                message: `Check-in successful! Welcome to ${gym.name}.`,
+                attendanceId: attendance.id,
+                checkInTime: attendance.checkInTime,
+                status: attendance.status,
+                method: attendance.method,
+                gym: {
+                    id: gym.id,
+                    name: gym.name,
+                    code: gym.code,
+                    location: gym.city ? `${gym.name} (${gym.city})` : gym.name,
+                },
+                member: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    avatarUrl: user.avatarUrl,
+                    tier: user.memberTier,
+                    status: user.status,
+                },
+                membership: activeMembership
+                    ? {
+                          id: activeMembership.id,
+                          planName: activeMembership.plan.name,
+                          tier: activeMembership.plan.tier,
+                          endDate: activeMembership.endDate,
+                          remainingDays,
+                      }
+                    : null,
+            };
+        });
+    }
+
+    async checkIn(input: CheckInInput, checkedInByStaffId?: string, authenticatedUserId?: string): Promise<any> {
+        return withSpan("AttendanceService.checkIn", async () => {
+            // Step 1: Resolve User & Gym
+            let user: any = null;
+            let gym: any = null;
+
+            const effectiveMemberId = input.memberId || authenticatedUserId;
+
+            // Check if gymQrCode or qrCodeKey corresponds to Gym
+            const qrKey = input.gymQrCode || input.qrCodeKey;
+            if (qrKey) {
+                try {
+                    gym = await this.gymService.validateGymQr(qrKey);
+                } catch {
+                    // Not a gym QR; could be legacy member QR code
+                    if (!effectiveMemberId && input.qrCodeKey) {
+                        const profile = await this.membersRepository.findByQrCodeKey(input.qrCodeKey);
+                        if (profile?.user) {
+                            user = await this.membersRepository.findMemberById(profile.user.id);
+                        }
+                    }
+                }
+            }
+
+            if (!gym && input.gymId) {
+                gym = await this.gymService.getGymById(input.gymId);
+            }
+
+            if (effectiveMemberId && !user) {
+                user = await this.membersRepository.findMemberById(effectiveMemberId);
+            } else if (input.barcode && !user) {
                 const profile = await this.membersRepository.findByBarcode(input.barcode);
                 if (profile?.user) {
                     user = await this.membersRepository.findMemberById(profile.user.id);
                 }
-            } else if (input.email) {
+            } else if (input.email && !user) {
                 const found = await this.membersRepository.findByEmail(input.email);
                 if (found) {
                     user = await this.membersRepository.findMemberById(found.id);
                 }
-            } else if (input.phone) {
+            } else if (input.phone && !user) {
                 const found = await this.membersRepository.findByPhone(input.phone);
                 if (found) {
                     user = await this.membersRepository.findMemberById(found.id);
@@ -57,15 +250,19 @@ export class AttendanceService {
                 throw new NotFoundError("Member not found with provided identifier");
             }
 
+            const checkInMethod: CheckInMethod = gym ? "QR_CODE" : ((input.method as CheckInMethod) || "MANUAL");
+            const checkInLocation: string = gym ? gym.name : (input.location || "Main Gym");
+
             // Step 2: Account Status Validation
             if (user.status === "SUSPENDED" || user.status === "INACTIVE") {
                 if (!input.overrideRestrictions) {
                     await this.attendanceRepository.createAttendance({
                         user: { connect: { id: user.id } },
+                        ...(gym ? { gym: { connect: { id: gym.id } } } : {}),
                         status: "DENIED",
                         denialReason: `ACCOUNT_${user.status}`,
-                        method: (input.method as CheckInMethod) || "MANUAL",
-                        ...(input.location !== undefined ? { location: input.location } : {}),
+                        method: checkInMethod,
+                        location: checkInLocation,
                         ...(input.notes !== undefined ? { notes: input.notes } : {}),
                         ...(checkedInByStaffId !== undefined ? { checkedInBy: checkedInByStaffId } : {}),
                     });
@@ -79,10 +276,11 @@ export class AttendanceService {
             if (!activeMembership && !input.overrideRestrictions && user.role === "MEMBER") {
                 await this.attendanceRepository.createAttendance({
                     user: { connect: { id: user.id } },
+                    ...(gym ? { gym: { connect: { id: gym.id } } } : {}),
                     status: "DENIED",
                     denialReason: "NO_ACTIVE_MEMBERSHIP",
-                    method: (input.method as CheckInMethod) || "MANUAL",
-                    ...(input.location !== undefined ? { location: input.location } : {}),
+                    method: checkInMethod,
+                    location: checkInLocation,
                     ...(input.notes !== undefined ? { notes: input.notes } : {}),
                     ...(checkedInByStaffId !== undefined ? { checkedInBy: checkedInByStaffId } : {}),
                 });
@@ -104,15 +302,16 @@ export class AttendanceService {
             // Step 5: Record Check-In
             const attendance = await this.attendanceRepository.createAttendance({
                 user: { connect: { id: user.id } },
+                ...(gym ? { gym: { connect: { id: gym.id } } } : {}),
                 status: "CHECKED_IN",
                 checkInTime: new Date(),
-                method: (input.method as CheckInMethod) || "MANUAL",
-                ...(input.location !== undefined ? { location: input.location } : {}),
+                method: checkInMethod,
+                location: checkInLocation,
                 ...(input.notes !== undefined ? { notes: input.notes } : {}),
                 ...(checkedInByStaffId !== undefined ? { checkedInBy: checkedInByStaffId } : {}),
             });
 
-            logger.info(`Member ${user.id} (${user.name}) successfully checked in at ${input.location || "Main Gym"}`);
+            logger.info(`Member ${user.id} (${user.name}) successfully checked in at ${checkInLocation}`);
 
             const remainingDays = activeMembership
                 ? Math.max(0, Math.ceil((activeMembership.endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
@@ -123,6 +322,7 @@ export class AttendanceService {
                 checkInTime: attendance.checkInTime,
                 status: attendance.status,
                 location: attendance.location,
+                gym: gym ? { id: gym.id, name: gym.name, code: gym.code } : null,
                 method: attendance.method,
                 member: {
                     id: user.id,
@@ -145,14 +345,16 @@ export class AttendanceService {
         });
     }
 
-    async checkOut(input: CheckOutInput): Promise<any> {
+    async checkOut(input: CheckOutInput, authenticatedUserId?: string): Promise<any> {
         return withSpan("AttendanceService.checkOut", async () => {
             let activeAttendance: any = null;
 
+            const effectiveMemberId = input.memberId || authenticatedUserId;
+
             if (input.attendanceId) {
                 activeAttendance = await this.attendanceRepository.findAttendanceById(input.attendanceId);
-            } else if (input.memberId) {
-                activeAttendance = await this.attendanceRepository.findActiveAttendanceByUserId(input.memberId);
+            } else if (effectiveMemberId) {
+                activeAttendance = await this.attendanceRepository.findActiveAttendanceByUserId(effectiveMemberId);
             }
 
             if (!activeAttendance) {
@@ -186,6 +388,7 @@ export class AttendanceService {
                 checkOutTime: updated.checkOutTime,
                 durationMinutes: updated.durationMinutes,
                 status: updated.status,
+                gym: updated.gym ? { id: updated.gym.id, name: updated.gym.name } : null,
                 member: {
                     id: updated.userId,
                     name: (updated as any).user?.name,
@@ -579,4 +782,4 @@ export class AttendanceService {
     }
 }
 
-export default new AttendanceService(attendanceRepository, membersRepository, plansRepository);
+export default new AttendanceService(attendanceRepository, membersRepository, plansRepository, gymService);
